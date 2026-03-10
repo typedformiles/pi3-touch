@@ -14,13 +14,13 @@ Connects to Moode/MPD running on another Pi over your local network.
 
 ## OS
 
-**Raspberry Pi OS Lite (32-bit, Bullseye)**
-- Download from: https://www.raspberrypi.com/software/
+**Raspberry Pi OS Lite (32-bit, Bookworm)**
 - Flash with Raspberry Pi Imager
-- Enable SSH in Imager advanced options
-- Set hostname to `hifiremote`
-- Set username to `tim`
-- Set WiFi credentials in Imager
+- In OS Customisation (gear icon), set:
+  - Hostname: `mooderemote`
+  - Username: `tim`
+  - WiFi credentials
+  - Enable SSH
 
 ---
 
@@ -28,7 +28,7 @@ Connects to Moode/MPD running on another Pi over your local network.
 
 ```bash
 # SSH into the Pi 3B
-ssh tim@hifiremote.local
+ssh tim@mooderemote.local
 
 # Clone or copy files
 git clone <your-repo> moode_display   # or scp the files across
@@ -125,17 +125,21 @@ sudo systemctl stop moode-display
 journalctl -u moode-display -f
 ```
 
+**Wrong DRI device**
+The HyperPixel may appear as card0 or card1. Check with:
+```bash
+ls /dev/dri/
+```
+Then update `SDL_KMSDRM_DEVICE_INDEX` in `/etc/systemd/system/moode-display.service`.
+
 **Can't connect to MPD**
 On the Moode Pi, check `/etc/mpd.conf` — `bind_to_address` must be `any` or absent.
 Test from Pi 3B: `nc -zv moode.local 6600`
 
 **HyperPixel not working**
 ```bash
-# Check driver is installed
-ls /boot/overlays/hyperpixel4.dtbo
-
-# Check config.txt (Bullseye uses /boot/config.txt)
-grep hyperpixel /boot/config.txt
+# Check config.txt (Bookworm uses /boot/firmware/config.txt)
+grep hyperpixel /boot/firmware/config.txt
 ```
 
 **Album art not showing**
@@ -151,6 +155,8 @@ python3-pygame
 python3-pil       (Pillow)
 python3-mpd2
 python3-requests
+libegl-dev        (for KMS/DRM rendering)
+libgbm1
 ```
 
 All installable via apt, no pip required.

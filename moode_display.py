@@ -15,10 +15,11 @@ import socket
 from PIL import Image
 import urllib.request
 
-# Ensure fbcon driver is used on headless Pi (set before pygame.init)
+# Use KMS/DRM driver on headless Pi (set before pygame.init)
 if "DISPLAY" not in os.environ and "WAYLAND_DISPLAY" not in os.environ:
-    os.environ.setdefault("SDL_VIDEODRIVER", "fbcon")
-    os.environ.setdefault("SDL_FBDEV", "/dev/fb0")
+    os.environ.setdefault("SDL_VIDEODRIVER", "kmsdrm")
+    # HyperPixel may appear as card0 or card1 — adjust if needed
+    os.environ.setdefault("SDL_KMSDRM_DEVICE_INDEX", "0")
 
 # ── Config ────────────────────────────────────────────────────────────────────
 MPD_HOST = "moode.local"
@@ -92,7 +93,7 @@ class MoodeDisplay:
         pygame.init()
         pygame.mouse.set_visible(False)
 
-        # Framebuffer / fullscreen
+        # KMS/DRM fullscreen
         flags = pygame.FULLSCREEN | pygame.NOFRAME
         self.screen = pygame.display.set_mode((SCREEN_W, SCREEN_H), flags)
         pygame.display.set_caption("Moode Display")

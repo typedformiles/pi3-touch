@@ -6,8 +6,8 @@ Wants=network-online.target
 [Service]
 Type=simple
 User=tim
-Environment=SDL_VIDEODRIVER=fbcon
-Environment=SDL_FBDEV=/dev/fb0
+Environment=SDL_VIDEODRIVER=kmsdrm
+Environment=SDL_KMSDRM_DEVICE_INDEX=0
 ExecStart=/usr/bin/python3 /home/tim/moode_display/moode_display.py
 Restart=always
 RestartSec=5
