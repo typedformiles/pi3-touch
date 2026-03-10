@@ -32,9 +32,9 @@ sudo apt-get install -y -q \
 
 # 4. Copy app files
 echo "[4/6] Installing app..."
-mkdir -p /home/pi/moode_display
-cp moode_display.py /home/pi/moode_display/
-chmod +x /home/pi/moode_display/moode_display.py
+mkdir -p "$HOME/moode_display"
+cp moode_display.py "$HOME/moode_display/"
+chmod +x "$HOME/moode_display/moode_display.py"
 
 # 5. Configure auto-login to console
 echo "[5/6] Configuring auto-login..."
@@ -55,5 +55,5 @@ echo "  2. After reboot, start the service:   sudo systemctl start moode-display
 echo "  3. Check logs if needed:              journalctl -u moode-display -f"
 echo ""
 echo "To edit config (MPD host, colours, layout):"
-echo "  nano /home/pi/moode_display/moode_display.py"
+echo "  nano "$HOME/moode_display/moode_display.py"
 echo "  (Edit the # Config section at the top)"
