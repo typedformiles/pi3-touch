@@ -5,11 +5,10 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-User=pi
-Environment=DISPLAY=:0
+User=tim
 Environment=SDL_VIDEODRIVER=fbcon
 Environment=SDL_FBDEV=/dev/fb0
-ExecStart=/usr/bin/python3 /home/pi/moode_display/moode_display.py
+ExecStart=/usr/bin/python3 /home/tim/moode_display/moode_display.py
 Restart=always
 RestartSec=5
 

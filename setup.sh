@@ -1,6 +1,7 @@
 #!/bin/bash
 # Moode Display - Setup Script
-# Run this on the Pi 3B after flashing Raspberry Pi OS Lite (32-bit, Bookworm)
+# Run this on the Pi 3B after flashing Raspberry Pi OS Lite (32-bit, Bullseye)
+# Username: tim, Hostname: hifiremote
 # Usage: bash setup.sh
 
 set -e
@@ -12,10 +13,15 @@ echo "[1/6] Updating system..."
 sudo apt-get update -q
 sudo apt-get upgrade -y -q
 
-# 2. Install HyperPixel 4.0 driver
-echo "[2/6] Installing HyperPixel driver..."
+# 2. Install HyperPixel 4.0 driver (pi3 branch)
+echo "[2/6] Installing HyperPixel 4.0 driver..."
 if ! grep -q "hyperpixel4" /boot/config.txt 2>/dev/null; then
-    curl -sSL get.pimoroni.com/hyperpixel4-legacy | bash
+    cd /tmp
+    git clone https://github.com/pimoroni/hyperpixel4 -b pi3
+    cd hyperpixel4
+    sudo ./install.sh
+    cd -
+    rm -rf /tmp/hyperpixel4
     echo "HyperPixel driver installed. Reboot required after setup."
 else
     echo "HyperPixel driver already installed."
@@ -26,7 +32,7 @@ echo "[3/6] Installing Python packages..."
 sudo apt-get install -y -q \
     python3-pygame \
     python3-pil \
-    python3-mpd \
+    python3-mpd2 \
     python3-requests \
     git
 
@@ -51,9 +57,9 @@ echo "=== Setup complete ==="
 echo ""
 echo "Next steps:"
 echo "  1. Reboot to apply HyperPixel driver: sudo reboot"
-echo "  2. After reboot, start the service:   sudo systemctl start moode-display"
+echo "  2. After reboot the service starts automatically."
 echo "  3. Check logs if needed:              journalctl -u moode-display -f"
 echo ""
 echo "To edit config (MPD host, colours, layout):"
-echo "  nano "$HOME/moode_display/moode_display.py"
+echo "  nano $HOME/moode_display/moode_display.py"
 echo "  (Edit the # Config section at the top)"

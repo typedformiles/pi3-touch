@@ -5,6 +5,7 @@ A fullscreen pygame app for Pi 3B + HyperPixel 4.0 (480x800 portrait)
 Connects to Moode/MPD on moode.local:6600
 """
 
+import os
 import pygame
 import mpd
 import time
@@ -13,6 +14,11 @@ import threading
 import socket
 from PIL import Image
 import urllib.request
+
+# Ensure fbcon driver is used on headless Pi (set before pygame.init)
+if "DISPLAY" not in os.environ and "WAYLAND_DISPLAY" not in os.environ:
+    os.environ.setdefault("SDL_VIDEODRIVER", "fbcon")
+    os.environ.setdefault("SDL_FBDEV", "/dev/fb0")
 
 # ── Config ────────────────────────────────────────────────────────────────────
 MPD_HOST = "moode.local"

@@ -1,6 +1,6 @@
 # Moode Remote Display
 
-A lightweight fullscreen display for Pi 3B + HyperPixel 4.0 (480×800 portrait).
+A lightweight fullscreen display for Pi 3B + HyperPixel 4.0 (480x800 portrait).
 Connects to Moode/MPD running on another Pi over your local network.
 
 ---
@@ -8,17 +8,18 @@ Connects to Moode/MPD running on another Pi over your local network.
 ## Hardware
 
 - Raspberry Pi 3 Model B
-- Pimoroni HyperPixel 4.0 Touch (rectangular, 480×800)
+- Pimoroni HyperPixel 4.0 Touch (rectangular, 480x800)
 
 ---
 
 ## OS
 
-**Raspberry Pi OS Lite (32-bit, Bookworm)**
+**Raspberry Pi OS Lite (32-bit, Bullseye)**
 - Download from: https://www.raspberrypi.com/software/
 - Flash with Raspberry Pi Imager
 - Enable SSH in Imager advanced options
-- Set hostname (e.g. `display`)
+- Set hostname to `hifiremote`
+- Set username to `tim`
 - Set WiFi credentials in Imager
 
 ---
@@ -27,7 +28,7 @@ Connects to Moode/MPD running on another Pi over your local network.
 
 ```bash
 # SSH into the Pi 3B
-ssh pi@display.local
+ssh tim@hifiremote.local
 
 # Clone or copy files
 git clone <your-repo> moode_display   # or scp the files across
@@ -58,30 +59,30 @@ Edit the `# Config` section at the top of `moode_display.py`:
 
 ---
 
-## Layout (portrait 480×800)
+## Layout (portrait 480x800)
 
 ```
-┌─────────────────────────┐
-│  12:34              ●   │  ← Clock + connection dot
-│                         │
-│    ┌───────────────┐    │
-│    │               │    │
-│    │   Album Art   │    │  ← 180×180px
-│    │               │    │
-│    └───────────────┘    │
-│                         │
-│  Track Title            │
-│  Artist Name            │
-│  Album Name             │
-│  ▶ PLAYING              │
-│                         │
-│  ████████░░░░░  2:14    │  ← Progress bar
-│  1:30            4:02   │
-│                         │
-│    ⏮      ▶      ⏭     │  ← Touch controls
-│                         │
-│  −  ████░░░░  Vol 65%  +│  ← Volume
-└─────────────────────────┘
++-------------------------+
+|  12:34              *   |  <- Clock + connection dot
+|                         |
+|    +---------------+    |
+|    |               |    |
+|    |   Album Art   |    |  <- 180x180px
+|    |               |    |
+|    +---------------+    |
+|                         |
+|  Track Title            |
+|  Artist Name            |
+|  Album Name             |
+|  > PLAYING              |
+|                         |
+|  ========-----  2:14    |  <- Progress bar
+|  1:30            4:02   |
+|                         |
+|    |<     >      >|     |  <- Touch controls
+|                         |
+|  -  ====----  Vol 65%  +|  <- Volume
++-------------------------+
 ```
 
 ---
@@ -90,10 +91,10 @@ Edit the `# Config` section at the top of `moode_display.py`:
 
 | Area        | Action                    |
 |-------------|---------------------------|
-| ⏮ button   | Previous track            |
-| ▶/⏸ button | Play / Pause              |
-| ⏭ button   | Next track                |
-| − button    | Volume down (5% steps)    |
+| Prev button | Previous track            |
+| Play button | Play / Pause              |
+| Next button | Next track                |
+| - button    | Volume down (5% steps)    |
 | + button    | Volume up (5% steps)      |
 | Any touch   | Wake screen from dim      |
 
@@ -133,7 +134,7 @@ Test from Pi 3B: `nc -zv moode.local 6600`
 # Check driver is installed
 ls /boot/overlays/hyperpixel4.dtbo
 
-# Check config.txt
+# Check config.txt (Bullseye uses /boot/config.txt)
 grep hyperpixel /boot/config.txt
 ```
 
