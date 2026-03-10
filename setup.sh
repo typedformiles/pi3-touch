@@ -15,7 +15,7 @@ sudo apt-get upgrade -y -q
 # 2. Install HyperPixel 4.0 driver
 echo "[2/6] Installing HyperPixel driver..."
 if ! grep -q "hyperpixel4" /boot/config.txt 2>/dev/null; then
-    curl -sSL https://get.pimoroni.com/hyperpixel4 | bash
+    curl -sSL get.pimoroni.com/hyperpixel4-legacy | bash
     echo "HyperPixel driver installed. Reboot required after setup."
 else
     echo "HyperPixel driver already installed."
@@ -26,7 +26,7 @@ echo "[3/6] Installing Python packages..."
 sudo apt-get install -y -q \
     python3-pygame \
     python3-pil \
-    python3-mpd2 \
+    python3-mpd \
     python3-requests \
     git
 
