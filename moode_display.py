@@ -6,6 +6,7 @@ Connects to Moode/MPD on moode.local:6600
 """
 
 import os
+import sys
 import pygame
 import mpd
 import time
@@ -179,21 +180,41 @@ class MoodeDisplay:
         if not uri or uri == self.art_uri:
             return
         self.art_uri = uri
-        try:
-            # Try Moode's albumart endpoint
-            url = f"{MOODE_URL}/coverart.php"
-            req = urllib.request.Request(url, headers={"User-Agent": "MoodeDisplay/1.0"})
-            with urllib.request.urlopen(req, timeout=5) as resp:
-                data = resp.read()
-            img = Image.open(io.BytesIO(data)).convert("RGB")
-            img.thumbnail((ART_SIZE, ART_SIZE), Image.LANCZOS)
-            mode = img.mode
-            size = img.size
-            raw  = img.tobytes()
-            surf = pygame.image.fromstring(raw, size, mode)
-            self.art_surface = surf
-        except Exception:
-            self.art_surface = None
+
+        # Try multiple Moode art endpoints
+        urls = [
+            f"{MOODE_URL}/coverart.php/{uri}",
+            f"{MOODE_URL}/coverart.php",
+            f"{MOODE_URL}/imagesw/default-cover-v6.svg",
+        ]
+        for url in urls:
+            try:
+                req = urllib.request.Request(url, headers={
+                    "User-Agent": "MoodeDisplay/1.0"
+                })
+                with urllib.request.urlopen(req, timeout=5) as resp:
+                    content_type = resp.headers.get("Content-Type", "")
+                    data = resp.read()
+                if len(data) < 100:
+                    # Too small, probably an error or empty response
+                    continue
+                if "svg" in content_type:
+                    continue  # Skip SVG, can't render with PIL
+                img = Image.open(io.BytesIO(data)).convert("RGB")
+                img.thumbnail((ART_SIZE, ART_SIZE), Image.LANCZOS)
+                mode = img.mode
+                size = img.size
+                raw  = img.tobytes()
+                surf = pygame.image.fromstring(raw, size, mode)
+                self.art_surface = surf
+                print(f"[art] Loaded from {url}", flush=True)
+                return
+            except Exception as e:
+                print(f"[art] Failed {url}: {e}", flush=True)
+                continue
+
+        print(f"[art] No art found for: {uri}", flush=True)
+        self.art_surface = None
 
     # ── Drawing ───────────────────────────────────────────────────────────────
 
@@ -220,10 +241,15 @@ class MoodeDisplay:
             blit_y = ART_Y  + (ART_SIZE - sh) // 2
             self.screen.blit(self.art_surface, (blit_x, blit_y))
         else:
-            # Placeholder note icon
-            note = self.font_btn.render("♪", True, ACCENT_DIM)
-            nr   = note.get_rect(center=(SCREEN_W // 2, ART_Y + ART_SIZE // 2))
-            self.screen.blit(note, nr)
+            # Placeholder: draw a simple note icon with lines
+            ncx = SCREEN_W // 2
+            ncy = ART_Y + ART_SIZE // 2
+            # Note head (filled circle)
+            pygame.draw.ellipse(self.screen, ACCENT_DIM,
+                                (ncx - 12, ncy + 4, 18, 14))
+            # Stem
+            pygame.draw.rect(self.screen, ACCENT_DIM,
+                             (ncx + 4, ncy - 24, 3, 30))
 
     def _draw_track_info(self):
         song   = self.song
@@ -244,7 +270,7 @@ class MoodeDisplay:
         # State badge
         state = self.status.get("state", "")
         badge_col = ACCENT if state == "play" else ACCENT_DIM
-        badge_txt = {"play": "▶ PLAYING", "pause": "⏸ PAUSED", "stop": "⏹ STOPPED"}.get(state, "")
+        badge_txt = {"play": "PLAYING", "pause": "PAUSED", "stop": "STOPPED"}.get(state, "")
         if badge_txt:
             b_surf = self.font_time.render(badge_txt, True, badge_col)
             self.screen.blit(b_surf, (PAD, INFO_Y + 100))
@@ -278,27 +304,78 @@ class MoodeDisplay:
         dur_r = dur_surf.get_rect(right=bar_x + bar_w, top=bar_y + 14)
         self.screen.blit(dur_surf, dur_r)
 
+    def _draw_icon_prev(self, cx, cy, size, colour):
+        """Draw previous track icon: bar + left triangle."""
+        s = size // 2
+        # Left bar
+        pygame.draw.rect(self.screen, colour, (cx - s, cy - s, 3, s * 2))
+        # Triangle pointing left
+        pygame.draw.polygon(self.screen, colour, [
+            (cx - s + 4, cy),
+            (cx + s, cy - s),
+            (cx + s, cy + s),
+        ])
+
+    def _draw_icon_next(self, cx, cy, size, colour):
+        """Draw next track icon: right triangle + bar."""
+        s = size // 2
+        # Triangle pointing right
+        pygame.draw.polygon(self.screen, colour, [
+            (cx - s, cy - s),
+            (cx - s, cy + s),
+            (cx + s - 4, cy),
+        ])
+        # Right bar
+        pygame.draw.rect(self.screen, colour, (cx + s - 3, cy - s, 3, s * 2))
+
+    def _draw_icon_play(self, cx, cy, size, colour):
+        """Draw play icon: right-pointing triangle."""
+        s = size // 2
+        pygame.draw.polygon(self.screen, colour, [
+            (cx - s + 2, cy - s),
+            (cx - s + 2, cy + s),
+            (cx + s, cy),
+        ])
+
+    def _draw_icon_pause(self, cx, cy, size, colour):
+        """Draw pause icon: two vertical bars."""
+        s = size // 2
+        bar_w = max(size // 5, 3)
+        gap = max(size // 5, 3)
+        pygame.draw.rect(self.screen, colour,
+                         (cx - gap - bar_w, cy - s, bar_w, s * 2))
+        pygame.draw.rect(self.screen, colour,
+                         (cx + gap, cy - s, bar_w, s * 2))
+
     def _draw_controls(self):
         cx = SCREEN_W // 2
         spacing = 90
+        icon_size = 20
 
         buttons = [
-            ("prev", cx - spacing, "⏮"),
-            ("play", cx,           "⏸" if self.status.get("state") == "play" else "▶"),
-            ("next", cx + spacing, "⏭"),
+            ("prev", cx - spacing, BTN_RADIUS - 6),
+            ("play", cx,           BTN_RADIUS),
+            ("next", cx + spacing, BTN_RADIUS - 6),
         ]
 
         rects = {}
-        for name, bx, label in buttons:
-            r = BTN_RADIUS if name == "play" else BTN_RADIUS - 6
-            col = BG_CARD
+        for name, bx, r in buttons:
             rect = pygame.Rect(bx - r, BTN_Y - r, r * 2, r * 2)
-            draw_rounded_rect(self.screen, col, rect, radius=r)
+            draw_rounded_rect(self.screen, BG_CARD, rect, radius=r)
             pygame.draw.rect(self.screen, ACCENT_DIM, rect,
                              width=2, border_radius=r)
-            lbl = self.font_btn.render(label, True, TEXT_PRI)
-            lr  = lbl.get_rect(center=(bx, BTN_Y))
-            self.screen.blit(lbl, lr)
+
+            # Draw icon
+            if name == "prev":
+                self._draw_icon_prev(bx, BTN_Y, icon_size, TEXT_PRI)
+            elif name == "next":
+                self._draw_icon_next(bx, BTN_Y, icon_size, TEXT_PRI)
+            elif name == "play":
+                if self.status.get("state") == "play":
+                    self._draw_icon_pause(bx, BTN_Y, icon_size, TEXT_PRI)
+                else:
+                    self._draw_icon_play(bx, BTN_Y, icon_size, TEXT_PRI)
+
             rects[name] = rect
 
         self.btn_prev = rects["prev"]
@@ -327,7 +404,7 @@ class MoodeDisplay:
         # Vol down
         vd = pygame.Rect(PAD, bar_y - r, r * 2, r * 2)
         draw_rounded_rect(self.screen, BG_CARD, vd, radius=r)
-        vd_l = self.font_vol.render("−", True, TEXT_SEC)
+        vd_l = self.font_vol.render("-", True, TEXT_SEC)
         self.screen.blit(vd_l, vd_l.get_rect(center=vd.center))
         self.btn_vol_down = vd
 

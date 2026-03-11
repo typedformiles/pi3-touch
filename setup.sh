@@ -31,7 +31,7 @@ echo "[3/6] Installing Python packages..."
 sudo apt-get install -y -q \
     python3-pygame \
     python3-pil \
-    python3-mpd2 \
+    python3-mpd \
     python3-requests \
     libegl-dev \
     libgbm1 \
