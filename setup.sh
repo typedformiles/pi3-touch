@@ -1,12 +1,15 @@
 #!/bin/bash
 # Moode Display - Setup Script
-# Run this on the Pi 3B after flashing Raspberry Pi OS Lite (32-bit, Bookworm)
-# Username: tim, Hostname: mooderemote
+# Run on your Pi after flashing Raspberry Pi OS Lite (32-bit, Bookworm)
 # Usage: bash setup.sh
 
 set -e
 
+APP_DIR="$HOME/moode_display"
+
 echo "=== Moode Display Setup ==="
+echo "User: $USER | Home: $HOME"
+echo ""
 
 # 1. System update
 echo "[1/6] Updating system..."
@@ -17,7 +20,6 @@ sudo apt-get upgrade -y -q
 echo "[2/6] Configuring HyperPixel 4.0 display..."
 CONFIG="/boot/firmware/config.txt"
 if ! grep -q "vc4-kms-dpi-hyperpixel4" "$CONFIG" 2>/dev/null; then
-    # Add HyperPixel overlay (vc4-kms-v3d should already be present on Bookworm)
     echo "" | sudo tee -a "$CONFIG"
     echo "# HyperPixel 4.0 Rectangular Touch" | sudo tee -a "$CONFIG"
     echo "dtoverlay=vc4-kms-dpi-hyperpixel4" | sudo tee -a "$CONFIG"
@@ -27,29 +29,46 @@ else
 fi
 
 # 3. Install Python dependencies + EGL libs for kmsdrm
-echo "[3/6] Installing Python packages..."
+echo "[3/6] Installing dependencies..."
 sudo apt-get install -y -q \
     python3-pygame \
     python3-pil \
     python3-mpd \
     python3-requests \
     libegl-dev \
-    libgbm1 \
-    git
+    libgbm1
 
 # 4. Copy app files
-echo "[4/6] Installing app..."
-mkdir -p "$HOME/moode_display"
-cp moode_display.py "$HOME/moode_display/"
-chmod +x "$HOME/moode_display/moode_display.py"
+echo "[4/6] Installing app to $APP_DIR..."
+mkdir -p "$APP_DIR"
+cp moode_display.py "$APP_DIR/"
+chmod +x "$APP_DIR/moode_display.py"
 
 # 5. Add user to video/render/input groups for KMS/DRM + touch access
 echo "[5/6] Setting up permissions..."
 sudo usermod -aG video,render,input "$USER"
 
-# 6. Install and enable systemd service
+# 6. Generate and install systemd service (uses current user/home)
 echo "[6/6] Installing systemd service..."
-sudo cp moode-display.service /etc/systemd/system/
+sudo tee /etc/systemd/system/moode-display.service > /dev/null <<EOF
+[Unit]
+Description=Moode Remote Display
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=$USER
+Environment=SDL_VIDEODRIVER=kmsdrm
+Environment=SDL_KMSDRM_DEVICE_INDEX=0
+ExecStart=/usr/bin/python3 $APP_DIR/moode_display.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
 sudo systemctl daemon-reload
 sudo systemctl enable moode-display.service
 
@@ -63,8 +82,9 @@ echo "  3. Check logs if needed:              journalctl -u moode-display -f"
 echo ""
 echo "If the display doesn't appear, check which DRI device the HyperPixel uses:"
 echo "  ls /dev/dri/"
-echo "  Then edit SDL_KMSDRM_DEVICE_INDEX in moode-display.service (0 or 1)"
+echo "  Then edit SDL_KMSDRM_DEVICE_INDEX:"
+echo "  sudo systemctl edit moode-display  (add Environment=SDL_KMSDRM_DEVICE_INDEX=1)"
 echo ""
 echo "To edit config (MPD host, colours, layout):"
-echo "  nano $HOME/moode_display/moode_display.py"
+echo "  nano $APP_DIR/moode_display.py"
 echo "  (Edit the # Config section at the top)"

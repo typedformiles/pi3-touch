@@ -1,3 +1,11 @@
+# This is a reference template — setup.sh generates the actual service file
+# using your username and home directory automatically.
+#
+# If you prefer to install manually:
+#   1. Replace YOUR_USER and YOUR_HOME below
+#   2. Copy to /etc/systemd/system/moode-display.service
+#   3. sudo systemctl daemon-reload && sudo systemctl enable moode-display
+
 [Unit]
 Description=Moode Remote Display
 After=network-online.target
@@ -5,10 +13,10 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-User=tim
+User=YOUR_USER
 Environment=SDL_VIDEODRIVER=kmsdrm
 Environment=SDL_KMSDRM_DEVICE_INDEX=0
-ExecStart=/usr/bin/python3 /home/tim/moode_display/moode_display.py
+ExecStart=/usr/bin/python3 /home/YOUR_USER/moode_display/moode_display.py
 Restart=always
 RestartSec=5
 
