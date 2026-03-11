@@ -47,15 +47,14 @@ BAR_FG      = (130,  80, 220)
 BTN_PRESS   = (50,   30,  90)
 
 # ── Layout constants (portrait 480x800) ───────────────────────────────────────
-PAD         = 24
-ART_SIZE    = 180           # album art max dimension (~1/4 of screen area)
-ART_Y       = 60
-INFO_Y      = ART_Y + ART_SIZE + 28
-PROGRESS_Y  = INFO_Y + 160
+PAD         = 20
+ART_SIZE    = 360           # album art — 75% of screen width, hero element
+ART_Y       = 48
+INFO_Y      = ART_Y + ART_SIZE + 12
+PROGRESS_Y  = INFO_Y + 140
 BTN_Y       = PROGRESS_Y + 60
 BTN_RADIUS  = 36
-VOL_Y       = BTN_Y + 100
-CLOCK_Y     = VOL_Y + 70
+VOL_Y       = BTN_Y + 90
 
 
 def load_font(size, bold=False):
@@ -103,13 +102,13 @@ class MoodeDisplay:
         self.clock = pygame.time.Clock()
 
         # Fonts
-        self.font_title   = load_font(26, bold=True)
-        self.font_artist  = load_font(22)
+        self.font_title   = load_font(30, bold=True)
+        self.font_artist  = load_font(24)
         self.font_album   = load_font(18)
         self.font_time    = load_font(17)
         self.font_btn     = load_font(28, bold=True)
         self.font_vol     = load_font(18)
-        self.font_clock   = load_font(42, bold=True)
+        self.font_clock   = load_font(28, bold=True)
         self.font_sub     = load_font(20)
 
         # State
@@ -290,7 +289,7 @@ class MoodeDisplay:
 
         self.screen.blit(t_surf,  (PAD, INFO_Y))
         self.screen.blit(a_surf,  (PAD, INFO_Y + 36))
-        self.screen.blit(al_surf, (PAD, INFO_Y + 66))
+        self.screen.blit(al_surf, (PAD, INFO_Y + 64))
 
         # State badge
         state = self.status.get("state", "")
@@ -298,7 +297,7 @@ class MoodeDisplay:
         badge_txt = {"play": "PLAYING", "pause": "PAUSED", "stop": "STOPPED"}.get(state, "")
         if badge_txt:
             b_surf = self.font_time.render(badge_txt, True, badge_col)
-            self.screen.blit(b_surf, (PAD, INFO_Y + 100))
+            self.screen.blit(b_surf, (PAD, INFO_Y + 96))
 
     def _draw_progress(self):
         elapsed  = float(self.status.get("elapsed",  0))
