@@ -54,8 +54,8 @@ Edit the `# Config` section at the top of `moode_display.py`:
 | `MPD_HOST`        | `moode.local`  | Hostname of your Moode Pi          |
 | `MPD_PORT`        | `6600`         | MPD port (default is always 6600)  |
 | `MOODE_URL`       | `http://moode.local` | Base URL for album art fetching |
-| `DIM_AFTER`       | `60`           | Seconds of inactivity before dim   |
-| `DIM_BRIGHTNESS`  | `30`           | Screen brightness when dimmed (0-255) |
+| `DIM_AFTER`       | `300`          | Seconds of inactivity before dim   |
+| `DIM_BRIGHTNESS`  | `120`          | Screen brightness when dimmed (0-255) |
 
 ---
 
@@ -65,24 +65,24 @@ Edit the `# Config` section at the top of `moode_display.py`:
 +-------------------------+
 |  12:34              *   |  <- Clock + connection dot
 |                         |
-|    +---------------+    |
-|    |               |    |
-|    |   Album Art   |    |  <- 180x180px
-|    |               |    |
-|    +---------------+    |
-|                         |
-|  Track Title            |
-|  Artist Name            |
-|  Album Name             |
-|  > PLAYING              |
-|                         |
-|  ========-----  2:14    |  <- Progress bar
-|  1:30            4:02   |
-|                         |
-|    |<     >      >|     |  <- Touch controls
-|                         |
-|  -  ====----  Vol 65%  +|  <- Volume
-+-------------------------+
+|  +---------360px------+ |
+|  |                     | |
+|  |                     | |
+|  |     Album Art       | |  <- 360x360px (75% width)
+|  |                     | |
+|  |                     | |
+|  +---------------------+ |
+|  Track Title              |
+|  Artist Name              |
+|  Album Name   > PLAYING   |
+|                           |
+|  ========-----  2:14      |  <- Progress bar
+|  1:30            4:02      |
+|                           |
+|    |<     >      >|       |  <- Touch controls
+|                           |
+|  -  ====----  Vol 65%  +  |  <- Volume
++---------------------------+
 ```
 
 ---
@@ -97,6 +97,7 @@ Edit the `# Config` section at the top of `moode_display.py`:
 | - button    | Volume down (5% steps)    |
 | + button    | Volume up (5% steps)      |
 | Any touch   | Wake screen from dim      |
+| Track/state change | Auto-wake from dim |
 
 ---
 
@@ -143,8 +144,9 @@ grep hyperpixel /boot/firmware/config.txt
 ```
 
 **Album art not showing**
-Moode serves art at `http://moode.local/coverart.php` — test this in a browser.
-If your library uses folder.jpg/cover.jpg files, Moode should serve these automatically.
+Art is fetched via MPD `readpicture`/`albumart` (embedded tags), with Moode's
+`coverart.php` as a fallback. Check `journalctl -u moode-display -f` for
+`[art]` log lines to see which method is being used or failing.
 
 ---
 
@@ -153,7 +155,7 @@ If your library uses folder.jpg/cover.jpg files, Moode should serve these automa
 ```
 python3-pygame
 python3-pil       (Pillow)
-python3-mpd2
+python3-mpd       (python-mpd2 library)
 python3-requests
 libegl-dev        (for KMS/DRM rendering)
 libgbm1
