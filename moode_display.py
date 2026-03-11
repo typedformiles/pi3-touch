@@ -31,8 +31,8 @@ SCREEN_W, SCREEN_H = 480, 800
 FPS = 30
 RECONNECT_INTERVAL = 5      # seconds between reconnect attempts
 POLL_INTERVAL = 1.0         # seconds between MPD status polls
-DIM_AFTER = 60              # seconds of inactivity before dimming
-DIM_BRIGHTNESS = 30         # 0-255
+DIM_AFTER = 300             # seconds of inactivity before dimming (5 min)
+DIM_BRIGHTNESS = 120        # 0-255 (higher = brighter when dimmed)
 
 # ── Colours ───────────────────────────────────────────────────────────────────
 BG          = (15,  15,  20)
@@ -122,6 +122,8 @@ class MoodeDisplay:
         self.last_touch   = time.time()
         self.dimmed        = False
         self.brightness    = 255
+        self._prev_uri     = None
+        self._prev_state   = None
 
         # Touch button rects (defined in draw, stored for hit testing)
         self.btn_prev = None
@@ -522,6 +524,15 @@ class MoodeDisplay:
 
             self.status = status
             self.song   = song
+
+            # Wake screen on track change or play/pause state change
+            cur_uri   = song.get("file")
+            cur_state = status.get("state")
+            if cur_uri != self._prev_uri or cur_state != self._prev_state:
+                if self._prev_uri is not None or self._prev_state is not None:
+                    self.last_touch = time.time()
+                self._prev_uri   = cur_uri
+                self._prev_state = cur_state
 
             self._draw_background()
 
