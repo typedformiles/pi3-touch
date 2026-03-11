@@ -15,6 +15,7 @@ import threading
 import socket
 from PIL import Image
 import urllib.request
+import urllib.parse
 
 # Use KMS/DRM driver on headless Pi (set before pygame.init)
 if "DISPLAY" not in os.environ and "WAYLAND_DISPLAY" not in os.environ:
@@ -180,38 +181,62 @@ class MoodeDisplay:
         if not uri or uri == self.art_uri:
             return
         self.art_uri = uri
+        data = None
 
-        # Try multiple Moode art endpoints
-        urls = [
-            f"{MOODE_URL}/coverart.php/{uri}",
-            f"{MOODE_URL}/coverart.php",
-            f"{MOODE_URL}/imagesw/default-cover-v6.svg",
-        ]
-        for url in urls:
+        # Method 1: MPD albumart / readpicture (direct from audio files)
+        try:
+            client = mpd.MPDClient()
+            client.timeout = 5
+            client.connect(MPD_HOST, MPD_PORT)
             try:
+                art = client.albumart(uri)
+                data = art.get("binary")
+                if data:
+                    print(f"[art] Got {len(data)} bytes via MPD albumart", flush=True)
+            except Exception:
+                pass
+            if not data:
+                try:
+                    art = client.readpicture(uri)
+                    data = art.get("binary")
+                    if data:
+                        print(f"[art] Got {len(data)} bytes via MPD readpicture", flush=True)
+                except Exception:
+                    pass
+            client.close()
+            client.disconnect()
+        except Exception as e:
+            print(f"[art] MPD art fetch failed: {e}", flush=True)
+
+        # Method 2: Moode coverart.php with URL-encoded path
+        if not data:
+            try:
+                encoded = urllib.parse.quote(uri)
+                url = f"{MOODE_URL}/coverart.php/{encoded}"
                 req = urllib.request.Request(url, headers={
                     "User-Agent": "MoodeDisplay/1.0"
                 })
                 with urllib.request.urlopen(req, timeout=5) as resp:
-                    content_type = resp.headers.get("Content-Type", "")
                     data = resp.read()
-                if len(data) < 100:
-                    # Too small, probably an error or empty response
-                    continue
-                if "svg" in content_type:
-                    continue  # Skip SVG, can't render with PIL
+                # Check it's not the default placeholder (it's ~379KB PNG)
+                content_type = resp.headers.get("Content-Type", "")
+                if data and len(data) > 1000:
+                    print(f"[art] Got {len(data)} bytes via coverart.php", flush=True)
+                else:
+                    data = None
+            except Exception as e:
+                print(f"[art] coverart.php failed: {e}", flush=True)
+
+        # Convert to pygame surface
+        if data:
+            try:
                 img = Image.open(io.BytesIO(data)).convert("RGB")
                 img.thumbnail((ART_SIZE, ART_SIZE), Image.LANCZOS)
-                mode = img.mode
-                size = img.size
-                raw  = img.tobytes()
-                surf = pygame.image.fromstring(raw, size, mode)
+                surf = pygame.image.fromstring(img.tobytes(), img.size, img.mode)
                 self.art_surface = surf
-                print(f"[art] Loaded from {url}", flush=True)
                 return
             except Exception as e:
-                print(f"[art] Failed {url}: {e}", flush=True)
-                continue
+                print(f"[art] Image decode failed: {e}", flush=True)
 
         print(f"[art] No art found for: {uri}", flush=True)
         self.art_surface = None
