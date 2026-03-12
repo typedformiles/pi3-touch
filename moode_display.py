@@ -121,6 +121,7 @@ class MoodeDisplay:
         self.last_poll    = 0
         self.last_touch   = time.time()
         self.dimmed        = False
+        self.sleeping      = False
         self.brightness    = 255
         self._prev_uri     = None
         self._prev_state   = None
@@ -131,6 +132,7 @@ class MoodeDisplay:
         self.btn_next = None
         self.btn_vol_down = None
         self.btn_vol_up   = None
+        self.btn_sleep    = None
 
         # Background MPD thread
         self.lock = threading.Lock()
@@ -255,6 +257,15 @@ class MoodeDisplay:
 
         dot_col = ACCENT if self.connected else (180, 60, 60)
         pygame.draw.circle(self.screen, dot_col, (SCREEN_W - PAD - 8, 28), 8)
+
+        # Sleep button (moon crescent) — left of connection dot
+        moon_cx = SCREEN_W - PAD - 40
+        moon_cy = 26
+        moon_r  = 10
+        moon_col = TEXT_SEC
+        pygame.draw.circle(self.screen, moon_col, (moon_cx, moon_cy), moon_r)
+        pygame.draw.circle(self.screen, BG, (moon_cx + 5, moon_cy - 4), moon_r - 2)
+        self.btn_sleep = pygame.Rect(moon_cx - 18, moon_cy - 18, 36, 36)
 
     def _draw_art(self):
         art_x = (SCREEN_W - ART_SIZE) // 2
@@ -450,6 +461,13 @@ class MoodeDisplay:
     # ── Dimming ───────────────────────────────────────────────────────────────
 
     def _apply_dim(self):
+        if self.sleeping:
+            # Manual sleep — near-black
+            dim = pygame.Surface((SCREEN_W, SCREEN_H), pygame.SRCALPHA)
+            dim.fill((0, 0, 0, 245))
+            self.screen.blit(dim, (0, 0))
+            return
+
         idle = time.time() - self.last_touch
         if idle > DIM_AFTER and not self.dimmed:
             self.dimmed = True
@@ -467,9 +485,17 @@ class MoodeDisplay:
     def _handle_touch(self, pos):
         self.last_touch = time.time()
 
+        if self.sleeping:
+            self.sleeping = False
+            return  # First touch just wakes from sleep
+
         if self.dimmed:
             self.dimmed = False
-            return  # First touch just wakes
+            return  # First touch just wakes from dim
+
+        if self.btn_sleep and self.btn_sleep.collidepoint(pos):
+            self.sleeping = True
+            return
 
         if self.btn_play and self.btn_play.collidepoint(pos):
             state = self.status.get("state", "")
@@ -526,11 +552,13 @@ class MoodeDisplay:
             self.song   = song
 
             # Wake screen on track change or play/pause state change
+            # (but not from manual sleep — user deliberately chose that)
             cur_uri   = song.get("file")
             cur_state = status.get("state")
             if cur_uri != self._prev_uri or cur_state != self._prev_state:
                 if self._prev_uri is not None or self._prev_state is not None:
-                    self.last_touch = time.time()
+                    if not self.sleeping:
+                        self.last_touch = time.time()
                 self._prev_uri   = cur_uri
                 self._prev_state = cur_state
 
