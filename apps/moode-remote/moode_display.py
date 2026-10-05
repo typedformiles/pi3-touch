@@ -582,10 +582,10 @@ class MoodeDisplay:
                 self._prev_state = cur_state
 
             self._draw_background()
+            self._draw_status_bar()         # always - it holds the Home button
 
             if connected:
                 self._maybe_update_art()
-                self._draw_status_bar()
                 self._draw_art()
                 self._draw_track_info()
                 self._draw_progress()

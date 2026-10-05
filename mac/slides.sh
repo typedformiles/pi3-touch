@@ -26,7 +26,7 @@ for f in "${files[@]}"; do
 done
 
 # One connection: ship the slides, swap them in, restart the slideshow if it's running.
-COPYFILE_DISABLE=1 tar -C "$TMP" -cf - . | $SSH '
+COPYFILE_DISABLE=1 tar -C "$TMP" --no-xattrs --no-mac-metadata -cf - . | $SSH '
   rm -rf ~/slides-upload && mkdir ~/slides-upload && tar -xf - -C ~/slides-upload &&
   sudo sh -c "rm -f /boot/firmware/show/* && cp ~tim/slides-upload/*.png /boot/firmware/show/" &&
   sudo systemctl try-restart pi3-booth-show.service &&

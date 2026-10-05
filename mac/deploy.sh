@@ -9,7 +9,7 @@ KEY=${PI_KEY:-$HOME/.ssh/mooderemote_ed25519}
 echo "Deploying $(git -C "$REPO" describe --always --dirty 2>/dev/null) to $PI..."
 # The install runs as its own job on the Pi, logging to ~/pi3-deploy.log, so a dropped
 # connection can't kill it half way; this end just follows the log until it finishes.
-COPYFILE_DISABLE=1 tar -C "$REPO" -czf - --exclude '*.png' --exclude '__pycache__' --exclude '.DS_Store' \
+COPYFILE_DISABLE=1 tar -C "$REPO" --no-xattrs --no-mac-metadata -czf - --exclude '*.png' --exclude '__pycache__' --exclude '.DS_Store' \
     common launcher apps pi |
   ssh -i "$KEY" -o ConnectTimeout=15 -o ServerAliveInterval=15 tim@"$PI" '
     LOG=$HOME/pi3-deploy.log
