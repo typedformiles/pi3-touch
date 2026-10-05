@@ -1,0 +1,22 @@
+#!/bin/sh
+# Usage: pi3-wifi <SSID>
+# Switch wlan0 to a saved Wi-Fi network if it's in range. Does nothing if we're already on
+# it, it isn't in range, or there's no saved profile (password) for it - so at a show
+# without the home network the Pi simply stays on whatever it's connected to.
+SSID="$1"
+[ -n "$SSID" ] && command -v nmcli >/dev/null || exit 0
+
+current=$(nmcli -t -f ACTIVE,SSID dev wifi | sed -n 's/^yes://p' | head -1)
+[ "$current" = "$SSID" ] && { echo "already on $SSID"; exit 0; }
+
+if ! nmcli -t -f SSID dev wifi list --rescan auto | grep -qxF "$SSID"; then
+  echo "$SSID not in range - staying on ${current:-nothing}"; exit 0
+fi
+
+profile=$(nmcli -t -f NAME,TYPE connection show | sed -n 's/:802-11-wireless$//p' | while read -r c; do
+  [ "$(nmcli -g 802-11-wireless.ssid connection show "$c")" = "$SSID" ] && { echo "$c"; break; }
+done)
+[ -n "$profile" ] || { echo "no saved profile for $SSID - add one with mac/add-wifi.sh"; exit 0; }
+
+echo "switching ${current:-nothing} -> $SSID ($profile)"
+nmcli --wait 45 connection up id "$profile" || { echo "couldn't join $SSID - letting NetworkManager pick"; nmcli device connect wlan0 || true; }

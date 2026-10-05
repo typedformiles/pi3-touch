@@ -1,5 +1,6 @@
 {
   "countdown": 10,
+  "wifi": "ORBI61",
   "layout": {
     "card_top": 170,
     "card_height": 190,
@@ -13,7 +14,8 @@
       "id": "booth-display",
       "name": "Booth Display",
       "blurb": "Slides on the HDMI screen",
-      "target": "pi3-app-booth-display.target"
+      "target": "pi3-app-booth-display.target",
+      "wifi": "timiphone"
     },
     {
       "id": "moode-remote",

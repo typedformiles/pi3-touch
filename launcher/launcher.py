@@ -6,6 +6,10 @@ starts it again automatically - tap a card to pick one now, or anywhere else to 
 the menu. Starting an app means starting its systemd target; the launcher then exits
 (the targets conflict with it), and the app's Home control brings it back.
 
+Wi-Fi: the menu (and any app without its own "wifi") uses the top-level "wifi" network in
+apps.json; an app can name its own. Switching is done by pi/bin/pi3-wifi in the background,
+only when that network is in range.
+
 Runs as root: it unbinds the text console, reads/writes /var/lib/pi3-touch and runs systemctl.
 """
 import json
@@ -19,6 +23,7 @@ sys.path.insert(0, os.path.join(HERE, "..", "common"))
 import pitouch  # noqa: E402
 
 LAST_APP = "/var/lib/pi3-touch/last-app"
+WIFI = os.path.join(HERE, "..", "pi", "bin", "pi3-wifi")
 ART = os.path.join(HERE, "art")
 REDRAW_EVERY = 10
 BAR = (126, 12, 247)
@@ -70,6 +75,13 @@ def write_last(app):
         pitouch.log("can't remember last app:", e)
 
 
+def switch_wifi(ssid):
+    """Move to a Wi-Fi network in the background (its own transient unit, so it outlives us)."""
+    if ssid:
+        subprocess.run(["systemd-run", "--no-block", "--collect", "--quiet",
+                        os.path.realpath(WIFI), ssid], check=False)
+
+
 class Launcher:
     def __init__(self, cfg, screen):
         self.cfg, self.screen = cfg, screen
@@ -93,10 +105,12 @@ class Launcher:
         pitouch.log(f"starting {app['name']} ({app['target']})")
         write_last(app)
         self.draw_banner(app, 0)
+        switch_wifi(app.get("wifi") or self.cfg.get("wifi"))
         subprocess.run(["systemctl", "start", "--no-block", app["target"]], check=False)
         sys.exit(0)
 
     def run(self, touch):
+        switch_wifi(self.cfg.get("wifi"))
         countdown_app = read_last(self.cfg)
         deadline = time.time() + self.cfg["countdown"] if countdown_app else None
         self.draw_menu()

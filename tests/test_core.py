@@ -164,10 +164,10 @@ class TestLauncher(unittest.TestCase):
         self.dir = tempfile.mkdtemp()
         self.cfg = launcher.load_config()
         self.cfg["countdown"] = 0.6                     # keep tests fast
-        self.started = []
+        self.commands = []
         self.patches = [
             mock.patch.object(launcher, "LAST_APP", self.dir + "/last-app"),
-            mock.patch.object(launcher.subprocess, "run", lambda cmd, check: self.started.append(cmd)),
+            mock.patch.object(launcher.subprocess, "run", lambda cmd, check: self.commands.append(cmd)),
         ]
         for p in self.patches:
             p.start()
@@ -176,6 +176,14 @@ class TestLauncher(unittest.TestCase):
         for p in self.patches:
             p.stop()
         self.fake.close()
+
+    @property
+    def started(self):
+        return [c for c in self.commands if c[0] == "systemctl"]
+
+    @property
+    def wifi(self):
+        return [c[-1] for c in self.commands if c[0] == "systemd-run"]
 
     def run_launcher(self, script, max_s=3):
         result = {}
@@ -227,6 +235,16 @@ class TestLauncher(unittest.TestCase):
     def test_no_last_app_no_countdown(self):
         self.assertFalse(self.run_launcher([], max_s=1.0))
         self.assertEqual(self.started, [])
+
+    def test_wifi_menu_then_app_network(self):
+        nx, ny = self.card_centre(0)                     # Booth Display has its own network
+        self.run_launcher([(0.1, nx, ny)])
+        self.assertEqual(self.wifi, ["ORBI61", "timiphone"])
+
+    def test_wifi_app_without_network_uses_default(self):
+        nx, ny = self.card_centre(1)                     # Moode Remote
+        self.run_launcher([(0.1, nx, ny)])
+        self.assertEqual(self.wifi, ["ORBI61", "ORBI61"])
 
     def test_every_app_has_art_and_systemd_target(self):
         for app in self.cfg["apps"]:

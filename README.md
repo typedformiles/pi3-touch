@@ -55,7 +55,21 @@ then prefix any tool with it, e.g. `PI=172.20.10.3 bash mac/deploy.sh`.
 ```bash
 bash mac/status.sh            # what's running, recent logs, power
 bash mac/slides.sh [folder]   # replace the Booth Display slides
+bash mac/add-wifi.sh <SSID>   # save a Wi-Fi network on the Pi
 ```
+
+## Wi-Fi per app
+
+The menu (and any app without its own setting) uses the top-level `"wifi"` network in
+`launcher/apps.json`; an app can name its own (Booth Display uses the phone hotspot, so
+`mac/slides.sh` can reach it at a show). The launcher switches with `pi/bin/pi3-wifi`, and
+only when the network is in range and saved on the Pi - otherwise it stays put.
+
+- Save a network (password typed at a hidden prompt, sent straight to the Pi):
+  `bash mac/add-wifi.sh <SSID> [priority]` - run it in your own Terminal.
+- The Mac has to be on whichever network the Pi is on to manage it.
+- Wi-Fi region: channels 12-13 (common on UK routers) need `cfg80211.ieee80211_regdom=GB`
+  in `/boot/firmware/cmdline.txt`; a US region can see those networks but can't join them.
 
 ## Adding an app
 
