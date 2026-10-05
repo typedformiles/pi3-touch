@@ -2,6 +2,11 @@
 # Usage: bash mac/pi-find.sh   - checks the Mac is on the iPhone hotspot and looks for the Pi.
 MYIP=$(ipconfig getifaddr en0)
 echo "Mac IP: ${MYIP:-none}"
+# Some hotspots (e.g. on 5G) hand the Mac an odd address and only reach the Pi over
+# IPv6 - so try the Pi's name first, whatever network we're on.
+if ssh -i "${PI_KEY:-$HOME/.ssh/mooderemote_ed25519}" -o ConnectTimeout=8 -o BatchMode=yes tim@mooderemote.local true 2>/dev/null; then
+  echo "  FOUND mooderemote.local - ready, e.g. bash mac/status.sh"; exit 0
+fi
 case "$MYIP" in
   172.20.10.*) echo "  OK - Mac is on the iPhone hotspot" ;;
   *) echo "  Mac is NOT on the hotspot - join 'timiphone' in the Wi-Fi menu first"; exit 1 ;;

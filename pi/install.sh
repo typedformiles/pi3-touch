@@ -5,6 +5,7 @@
 # HyperPixel, and migrates the older booth-only setup (showloop/showtouch) if it's there.
 # Options (env): PI_USER=tim  SKIP_APT=1
 set -e
+trap 'echo "INSTALL FAILED (line $LINENO)"' ERR
 REPO=$(cd "$(dirname "$0")/.." && pwd)
 DEST=/opt/pi3-touch
 USER_NAME=${PI_USER:-${SUDO_USER:-tim}}
