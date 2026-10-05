@@ -1,0 +1,2 @@
+# Monitor plugged in / switched on: restart the slides (if running) so they pick up its resolution
+ACTION=="change", SUBSYSTEM=="drm", ENV{HOTPLUG}=="1", RUN+="/usr/bin/systemctl --no-block try-restart pi3-booth-show.service"

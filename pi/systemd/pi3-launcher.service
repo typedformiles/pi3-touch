@@ -1,0 +1,12 @@
+[Unit]
+Description=Pi3 Touch launcher (HyperPixel app menu)
+After=systemd-user-sessions.service
+
+[Service]
+ExecStart=/usr/bin/python3 /opt/pi3-touch/launcher/launcher.py
+Restart=on-failure
+RestartSec=3
+StateDirectory=pi3-touch
+
+[Install]
+WantedBy=multi-user.target

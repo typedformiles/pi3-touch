@@ -1,0 +1,8 @@
+[Unit]
+Description=Pi3 Touch: watch for an app asking to go back to the menu
+
+[Path]
+PathExists=/run/pi3-touch/request-home
+
+[Install]
+WantedBy=multi-user.target

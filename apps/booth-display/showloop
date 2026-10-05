@@ -1,0 +1,33 @@
+#!/bin/sh
+# Booth display: full-screen slides on HDMI, forever.
+# Shows images from the SD card's "show" folder (editable on a Mac), otherwise
+# loops the videos in ~/videos.
+HERE=$(dirname "$(readlink -f "$0")")
+SHOW=/boot/firmware/show
+VIDEOS=$HOME/videos
+ROTATE=20                                   # seconds per slide
+RUN=/run/pi3-touch
+
+# Pi 3B tops out at 1080p - use it whenever the monitor offers it (also tames 4K TVs)
+MODE=preferred
+grep -qx 1920x1080 /sys/class/drm/card0-HDMI-A-1/modes 2>/dev/null && MODE=1920x1080
+OUT="--input-ipc-server=$RUN/booth-mpv.sock --drm-connector=HDMI-A-1 --drm-mode=$MODE --fs --no-audio --osd-level=0 --msg-level=all=warn"
+
+set --
+for f in "$SHOW"/*.png "$SHOW"/*.jpg "$SHOW"/*.jpeg "$SHOW"/*.PNG "$SHOW"/*.JPG; do
+  case "$(basename "$f")" in ._*) continue;; esac   # skip macOS resource-fork files
+  [ -e "$f" ] && set -- "$@" "$f"
+done
+if [ $# -gt 0 ]; then
+  # Stills: plain KMS output, no GPU/decoder involved. rotate.lua advances each slide
+  # ROTATE seconds after it actually appears, and takes prev/next/pause from showtouch.
+  exec mpv --vo=drm $OUT --image-display-duration=inf --loop-playlist=inf \
+    --script="$HERE/rotate.lua" --script-opts=rotate-secs=$ROTATE,rotate-state=$RUN/booth-state "$@"
+fi
+
+# Video fallback. Note: on a real 1080p monitor this went black after a frame or two
+# (v4l2m2m frames handed straight to a KMS plane were rejected) - stills are the safe path.
+set -- "$VIDEOS"/*.mp4
+[ -e "$1" ] || { echo "nothing to show in $SHOW or $VIDEOS"; exit 1; }
+if [ $# -eq 1 ]; then LOOP=--loop-file=inf; else LOOP=--loop-playlist=inf; fi
+exec mpv --profile=fast --vo=gpu --gpu-context=drm --hwdec=v4l2m2m $OUT "$LOOP" "$@"

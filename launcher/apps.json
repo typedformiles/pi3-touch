@@ -1,0 +1,25 @@
+{
+  "countdown": 10,
+  "layout": {
+    "card_top": 170,
+    "card_height": 190,
+    "card_gap": 28,
+    "card_margin": 30,
+    "banner_top": 640,
+    "banner_height": 160
+  },
+  "apps": [
+    {
+      "id": "booth-display",
+      "name": "Booth Display",
+      "blurb": "Slides on the HDMI screen",
+      "target": "pi3-app-booth-display.target"
+    },
+    {
+      "id": "moode-remote",
+      "name": "Moode Remote",
+      "blurb": "Now playing from moode.local",
+      "target": "pi3-app-moode-remote.target"
+    }
+  ]
+}

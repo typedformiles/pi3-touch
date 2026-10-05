@@ -1,186 +1,76 @@
-# Moode Remote Display
+# Pi3 Touch
 
-A fullscreen "now playing" companion display for [Moode Audio](https://moodeaudio.org/).
-Runs on a Raspberry Pi with a HyperPixel 4.0 touch screen, connecting to Moode/MPD
-over your local network. No desktop environment needed — renders directly via KMS/DRM.
+A Raspberry Pi 3 with a Pimoroni HyperPixel 4.0 touch screen that boots into a menu of
+apps. Pick one and it runs; each app has a way back to the menu. After a power cut it
+counts down and restarts whatever was running last.
 
-![Python](https://img.shields.io/badge/python-3-blue)
-![Platform](https://img.shields.io/badge/platform-Raspberry%20Pi-red)
+| App | What it does |
+|---|---|
+| [Booth Display](apps/booth-display/) | Slides full screen on an HDMI monitor; the HyperPixel becomes a Previous / Pause / Next remote. |
+| [Moode Remote](apps/moode-remote/) | "Now playing" screen and controls for a [Moode Audio](https://moodeaudio.org/) player on the network. |
 
----
+## Layout
 
-## Hardware
+```
+launcher/       the boot menu (launcher.py, apps.json, art/)
+apps/<app>/     one folder per app
+common/         pitouch.py - shared touch input + framebuffer drawing (stdlib only)
+pi/             install.sh, systemd units, udev rule - runs on the Pi
+mac/            tools you run on the Mac: deploy, find the Pi, send slides, status
+tests/          off-Pi tests (python3 -m unittest discover tests; lua tests/test_rotate.lua)
+```
 
-- **Display Pi**: Raspberry Pi 3 Model B (or newer)
-- **Screen**: Pimoroni HyperPixel 4.0 Touch (rectangular, 480x800 portrait)
-- **Moode Pi**: separate Pi running [Moode Audio](https://moodeaudio.org/) (any model)
+## How it works on the Pi
 
-The display Pi connects to Moode over the network — they don't need to be the same device.
+- Everything installs to `/opt/pi3-touch`.
+- `pi3-launcher.service` starts at boot and draws the menu. Choosing an app starts its
+  systemd target (`pi3-app-<id>.target`), which conflicts with the launcher - so exactly
+  one thing owns the screens at a time. That matters: only one program can drive the
+  Pi's display hardware, which is also why HyperPixel panels are drawn straight into
+  the framebuffer (`/dev/fb0`) instead of through a graphics library.
+- An app asks for the menu by creating `/run/pi3-touch/request-home`;
+  `pi3-home.path` notices and starts the launcher.
+- The last app is remembered in `/var/lib/pi3-touch/last-app`; the menu counts down
+  10 s and starts it again. Tap a card to choose, anywhere else to stay on the menu.
+- An app that keeps crashing falls back to the menu rather than leaving a dead screen.
 
----
+## Setting up a Pi
 
-## OS
+1. **Flash** Raspberry Pi OS Lite (32-bit) with Raspberry Pi Imager. In the settings:
+   hostname `mooderemote`, user `tim`, SSH on, your Wi-Fi.
+   (Phone hotspot? The Pi 3B is 2.4 GHz only - on an iPhone turn on *Maximise Compatibility*,
+   and avoid curly apostrophes in the network name.)
+2. **SSH key** (once, from the Mac):
+   `ssh-keygen -t ed25519 -f ~/.ssh/mooderemote_ed25519 -N ""` then
+   `ssh-copy-id -i ~/.ssh/mooderemote_ed25519.pub tim@mooderemote.local`
+3. **Deploy**: `bash mac/deploy.sh` - installs packages (roughly 150 MB, mostly mpv and
+   pygame), enables the HyperPixel, installs the launcher and apps, reboots if needed.
+   Re-run it any time to update; it's safe to repeat.
 
-**Raspberry Pi OS Lite (32-bit, Bookworm)**
+Name not resolving (common on hotspots)? `bash mac/pi-find.sh` finds the Pi's address;
+then prefix any tool with it, e.g. `PI=172.20.10.3 bash mac/deploy.sh`.
 
-Flash with [Raspberry Pi Imager](https://www.raspberrypi.com/software/). In OS Customisation set:
-- Your username and password
-- Hostname (e.g. `mooderemote`)
-- WiFi credentials
-- Enable SSH
-
----
-
-## Installation
+## Day to day
 
 ```bash
-# SSH into your display Pi
-ssh youruser@yourhostname.local
-
-# Copy files across (scp from your Mac/PC, or git clone)
-scp -r moode_display.py setup.sh youruser@yourhostname.local:~/moode_display/
-cd ~/moode_display
-
-# Run setup (installs deps, configures HyperPixel, creates systemd service)
-bash setup.sh
-
-# Reboot (required for HyperPixel driver)
-sudo reboot
+bash mac/status.sh            # what's running, recent logs, power
+bash mac/slides.sh [folder]   # replace the Booth Display slides
 ```
 
-After reboot the display app starts automatically via systemd.
+## Adding an app
 
-> **Note:** `setup.sh` generates the systemd service file using your current
-> username and home directory — no need to edit paths manually.
+1. `apps/<id>/` with the app.
+2. `pi/systemd/pi3-app-<id>.target` (`Wants=` its services, `Conflicts=pi3-launcher.service`)
+   and its services (`PartOf=` the target) - copy the Moode Remote ones.
+3. An entry in `launcher/apps.json`, then `python3 launcher/art/make_art.py` (Mac, Pillow).
+4. Give the app a way to create `/run/pi3-touch/request-home`.
 
----
+## Hardware notes
 
-## Configuration
-
-Edit the `# Config` section at the top of `moode_display.py`:
-
-| Setting           | Default              | Description                          |
-|-------------------|----------------------|--------------------------------------|
-| `MPD_HOST`        | `moode.local`        | Hostname/IP of your Moode Pi         |
-| `MPD_PORT`        | `6600`               | MPD port (default is always 6600)    |
-| `MOODE_URL`       | `http://moode.local` | Base URL for album art fallback      |
-| `SCREEN_W/H`      | `480` / `800`        | Screen resolution (match your display) |
-| `DIM_AFTER`       | `300`                | Seconds of inactivity before dimming |
-| `DIM_BRIGHTNESS`  | `120`                | Brightness when dimmed (0-255)       |
-
----
-
-## Layout (portrait 480x800)
-
-```
-+---------------------------+
-|  12:34                *   |  <- Clock + connection dot
-|                           |
-|  +-------360px----------+ |
-|  |                       | |
-|  |                       | |
-|  |      Album Art        | |  <- 360x360px (75% width)
-|  |                       | |
-|  |                       | |
-|  +-----------------------+ |
-|  Track Title               |
-|  Artist Name               |
-|  Album Name   > PLAYING    |
-|                            |
-|  ========------  2:14      |  <- Progress bar
-|  1:30            4:02      |
-|                            |
-|    |<      >      >|      |  <- Touch controls
-|                            |
-|  -  ====----  Vol 65%  +  |  <- Volume
-+----------------------------+
-```
-
----
-
-## Touch Controls
-
-| Area               | Action                 |
-|--------------------|------------------------|
-| Prev button        | Previous track         |
-| Play button        | Play / Pause           |
-| Next button        | Next track             |
-| - button           | Volume down (5% steps) |
-| + button           | Volume up (5% steps)   |
-| Any touch          | Wake screen from dim   |
-| Track/state change | Auto-wake from dim     |
-
----
-
-## Service Management
-
-```bash
-# Check status
-sudo systemctl status moode-display
-
-# View live logs
-journalctl -u moode-display -f
-
-# Restart after config changes
-sudo systemctl restart moode-display
-
-# Stop
-sudo systemctl stop moode-display
-```
-
----
-
-## Troubleshooting
-
-**Black screen / app not starting**
-```bash
-journalctl -u moode-display -f
-```
-
-**Wrong DRI device**
-The HyperPixel may appear as card0 or card1. Check with:
-```bash
-ls /dev/dri/
-```
-Then override the device index:
-```bash
-sudo systemctl edit moode-display
-# Add: Environment=SDL_KMSDRM_DEVICE_INDEX=1
-```
-
-**Can't connect to MPD**
-On the Moode Pi, check `/etc/mpd.conf` — `bind_to_address` must be `any` or absent.
-Test from display Pi: `nc -zv moode.local 6600`
-
-**HyperPixel not detected**
-```bash
-grep hyperpixel /boot/firmware/config.txt
-# Should show: dtoverlay=vc4-kms-dpi-hyperpixel4
-```
-
-**Album art not showing**
-Art is fetched via MPD `readpicture`/`albumart` (embedded tags), with Moode's
-`coverart.php` as a fallback. Check `journalctl -u moode-display -f` for
-`[art]` log lines to see which method is being used or failing.
-
----
-
-## Dependencies
-
-All installed automatically by `setup.sh`:
-
-```
-python3-pygame
-python3-pil        (Pillow)
-python3-mpd        (python-mpd2 library)
-python3-requests
-libegl-dev         (EGL headers for KMS/DRM)
-libgbm1            (GBM library for KMS/DRM)
-```
-
-No pip required — everything comes from apt.
-
----
+- HyperPixel 4.0 rectangular: `dtoverlay=vc4-kms-dpi-hyperpixel4` (added by the installer).
+- Its Goodix touch controller advertises landscape ranges (x 0-799, y 0-479), but raw x
+  runs left-right and raw y top-bottom on the portrait panel - normalise each by its own
+  range. (Assuming the long axis was vertical sent every tap to the middle button.)
 
 ## License
 

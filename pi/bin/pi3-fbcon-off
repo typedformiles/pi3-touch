@@ -1,0 +1,6 @@
+#!/bin/sh
+# Stop the text console drawing over the HyperPixel panels.
+for v in /sys/class/vtconsole/vtcon*; do
+  grep -q "frame buffer" "$v/name" 2>/dev/null && echo 0 > "$v/bind"
+done
+exit 0

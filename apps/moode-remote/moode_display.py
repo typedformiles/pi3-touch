@@ -33,6 +33,7 @@ RECONNECT_INTERVAL = 5      # seconds between reconnect attempts
 POLL_INTERVAL = 1.0         # seconds between MPD status polls
 DIM_AFTER = 300             # seconds of inactivity before dimming (5 min)
 DIM_BRIGHTNESS = 120        # 0-255 (higher = brighter when dimmed)
+HOME_REQUEST = "/run/pi3-touch/request-home"   # Pi3 Touch launcher picks this up
 
 # ── Colours ───────────────────────────────────────────────────────────────────
 BG          = (15,  15,  20)
@@ -94,9 +95,11 @@ class MoodeDisplay:
         pygame.init()
         pygame.mouse.set_visible(False)
 
-        # KMS/DRM fullscreen
+        # KMS/DRM fullscreen - on the HyperPixel even when an HDMI monitor is also connected
         flags = pygame.FULLSCREEN | pygame.NOFRAME
-        self.screen = pygame.display.set_mode((SCREEN_W, SCREEN_H), flags)
+        sizes = pygame.display.get_desktop_sizes()
+        display = next((i for i, sz in enumerate(sizes) if sz == (SCREEN_W, SCREEN_H)), 0)
+        self.screen = pygame.display.set_mode((SCREEN_W, SCREEN_H), flags, display=display)
         pygame.display.set_caption("Moode Display")
 
         self.clock = pygame.time.Clock()
@@ -133,6 +136,7 @@ class MoodeDisplay:
         self.btn_vol_down = None
         self.btn_vol_up   = None
         self.btn_sleep    = None
+        self.btn_home     = None
 
         # Background MPD thread
         self.lock = threading.Lock()
@@ -266,6 +270,14 @@ class MoodeDisplay:
         pygame.draw.circle(self.screen, moon_col, (moon_cx, moon_cy), moon_r)
         pygame.draw.circle(self.screen, BG, (moon_cx + 5, moon_cy - 4), moon_r - 2)
         self.btn_sleep = pygame.Rect(moon_cx - 18, moon_cy - 18, 36, 36)
+
+        # Home button (house) - back to the Pi3 Touch menu; only when the launcher is installed
+        if os.path.isdir(os.path.dirname(HOME_REQUEST)):
+            hx, hy = SCREEN_W - PAD - 82, 27
+            pygame.draw.polygon(self.screen, TEXT_SEC, [(hx - 13, hy - 1), (hx, hy - 12), (hx + 13, hy - 1)])
+            pygame.draw.rect(self.screen, TEXT_SEC, (hx - 9, hy - 1, 18, 12))
+            pygame.draw.rect(self.screen, BG, (hx - 2, hy + 4, 5, 7))          # door
+            self.btn_home = pygame.Rect(hx - 18, hy - 18, 36, 36)
 
     def _draw_art(self):
         art_x = (SCREEN_W - ART_SIZE) // 2
@@ -495,6 +507,13 @@ class MoodeDisplay:
 
         if self.btn_sleep and self.btn_sleep.collidepoint(pos):
             self.sleeping = True
+            return
+
+        if self.btn_home and self.btn_home.collidepoint(pos):
+            try:
+                open(HOME_REQUEST, "w").close()
+            except OSError as e:
+                print(f"[home] can't request menu: {e}", flush=True)
             return
 
         if self.btn_play and self.btn_play.collidepoint(pos):

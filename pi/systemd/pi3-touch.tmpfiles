@@ -1,0 +1,2 @@
+# Shared runtime dir: mpv socket, booth pause state, "back to menu" requests
+d /run/pi3-touch 0755 @USER@ @USER@ -

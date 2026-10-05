@@ -1,0 +1,7 @@
+[Unit]
+Description=Pi3 Touch: back to the menu
+
+[Service]
+Type=oneshot
+ExecStart=/bin/rm -f /run/pi3-touch/request-home
+ExecStart=/bin/systemctl start --no-block pi3-launcher.service

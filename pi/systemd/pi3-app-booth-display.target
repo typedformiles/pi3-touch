@@ -1,0 +1,5 @@
+[Unit]
+Description=Pi3 Touch app: Booth Display
+Wants=pi3-booth-show.service pi3-booth-touch.service
+Conflicts=pi3-launcher.service
+After=pi3-launcher.service

@@ -1,0 +1,5 @@
+[Unit]
+Description=Pi3 Touch app: Moode Remote
+Wants=pi3-moode-remote.service
+Conflicts=pi3-launcher.service
+After=pi3-launcher.service

@@ -1,0 +1,16 @@
+[Unit]
+Description=Booth Display: HyperPixel touch panel
+PartOf=pi3-app-booth-display.target
+After=pi3-launcher.service pi3-booth-show.service
+
+# Crash-looping? Give up and fall back to the menu rather than leave a dead screen
+StartLimitIntervalSec=120
+StartLimitBurst=5
+OnFailure=pi3-home.service
+
+[Service]
+User=@USER@
+ExecStartPre=+/opt/pi3-touch/pi/bin/pi3-fbcon-off
+ExecStart=/usr/bin/python3 /opt/pi3-touch/apps/booth-display/showtouch.py
+Restart=always
+RestartSec=3
