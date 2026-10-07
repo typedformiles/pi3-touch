@@ -8,14 +8,18 @@ top-left corner of the framebuffer, so we can still paint the 480x800 panel ther
 """
 import fcntl
 import gzip
+import json
 import os
 import select
 import struct
 import time
+from array import array
 
 PW, PH = 480, 800                      # HyperPixel 4.0 rectangular, portrait
 FB = "/dev/fb0"
 FBSYS = "/sys/class/graphics/fb0/"
+CONFIG = os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "launcher", "apps.json")
+_rotation = None
 
 EV_KEY, EV_ABS = 0x01, 0x03
 BTN_TOUCH = 0x14A
@@ -25,6 +29,25 @@ EVENT = struct.Struct("llHHi")         # struct input_event (16 bytes on 32-bit 
 
 def log(*a):
     print(*a, flush=True)
+
+
+def rotation():
+    """How the panel is mounted: 0, or 180 for a Pi sitting upside down.
+
+    From "display": {"rotate": 180} in launcher/apps.json (PI3_ROTATE overrides). Everything
+    drawn - framebuffer here, pygame via pgscreen.py - and every touch is turned to match.
+    """
+    global _rotation
+    if _rotation is None:
+        value = os.environ.get("PI3_ROTATE")
+        if value is None:
+            try:
+                with open(CONFIG) as f:
+                    value = json.load(f).get("display", {}).get("rotate", 0)
+            except (OSError, ValueError):
+                value = 0
+        _rotation = 180 if int(value) % 360 == 180 else 0
+    return _rotation
 
 
 def fbcon_off():
@@ -96,7 +119,8 @@ class Touch:
 
     def norm(self, x, y):
         (xlo, xhi), (ylo, yhi) = self.xr, self.yr
-        return (x - xlo) / max(1, xhi - xlo), (y - ylo) / max(1, yhi - ylo)
+        nx, ny = (x - xlo) / max(1, xhi - xlo), (y - ylo) / max(1, yhi - ylo)
+        return (1 - nx, 1 - ny) if rotation() == 180 else (nx, ny)
 
     def taps(self, timeout):
         """Wait up to `timeout` s; return a list of (nx, ny, held_seconds) for fingers lifted."""
@@ -174,14 +198,26 @@ class Screen:
         log(f"framebuffer: {self.bpp} bpp, stride {self.stride}, {self.vw}x{self.vh}")
 
     def image(self, path):
-        """Converted pixels for an image file, cached."""
+        """Converted pixels for an image file (turned to match the panel), cached."""
         if path not in self._cache:
-            self._cache[path] = convert(load_rgb(path), self.bpp)
+            px = convert(load_rgb(path), self.bpp)
+            if rotation() == 180:                   # 180 degrees = every pixel in reverse order
+                a = array("H" if self.bpp == 16 else "I")
+                a.frombytes(px)
+                a.reverse()
+                px = a.tobytes()
+            self._cache[path] = px
         return self._cache[path]
+
+    @staticmethod
+    def place(x, y, w, h):
+        """Where a w x h box at (x, y) on the upright panel lands in the framebuffer."""
+        return (PW - x - w, PH - y - h) if rotation() == 180 else (x, y)
 
     def blit(self, path, x=0, y=0, w=PW, h=PH):
         """Draw a w x h image at (x, y)."""
         px = self.image(path)
+        x, y = self.place(x, y, w, h)
         row = w * self.bytespp
         with open(FB, "r+b", buffering=0) as fb:
             for r in range(min(h, self.vh - y)):
@@ -192,6 +228,7 @@ class Screen:
         """Draw a solid rectangle."""
         if w <= 0 or h <= 0:
             return
+        x, y = self.place(x, y, w, h)
         line = convert(bytes(rgb) * w, self.bpp)
         with open(FB, "r+b", buffering=0) as fb:
             for r in range(min(h, self.vh - y)):

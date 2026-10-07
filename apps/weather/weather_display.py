@@ -25,6 +25,7 @@ if "DISPLAY" not in os.environ and "WAYLAND_DISPLAY" not in os.environ:
     os.environ.setdefault("SDL_KMSDRM_DEVICE_INDEX", "0")
 os.environ.setdefault("PYGAME_HIDE_SUPPORT_PROMPT", "1")
 import pygame  # noqa: E402
+import pgscreen  # noqa: E402
 import weather_icons  # noqa: E402
 
 # ── Config ────────────────────────────────────────────────────────────────────
@@ -106,18 +107,10 @@ class WeatherDisplay:
         self.store = store
 
         if screen is None:
-            # Display and fonts only: pygame.init() would also start audio, whose threads
-            # cost ~5% CPU on a Pi 3 playing silence
-            pygame.display.init()
-            pygame.font.init()
-            pygame.mouse.set_visible(False)
-            # KMS/DRM fullscreen - on the HyperPixel even when an HDMI monitor is also connected
-            flags = pygame.FULLSCREEN | pygame.NOFRAME
-            sizes = pygame.display.get_desktop_sizes()
-            display = next((i for i, sz in enumerate(sizes) if sz == (SCREEN_W, SCREEN_H)), 0)
-            screen = pygame.display.set_mode((SCREEN_W, SCREEN_H), flags, display=display)
-            pygame.display.set_caption("Weather")
+            self.display = pgscreen.Display(SCREEN_W, SCREEN_H, "Weather")
+            screen = self.display.surface
         else:
+            self.display = None
             pygame.font.init()
         self.screen = screen
 
@@ -604,13 +597,13 @@ class WeatherDisplay:
             return False
         # SDL also turns touches into mouse events; take the finger ones only
         if event.type == pygame.FINGERDOWN:
-            self.touch_down((int(event.x * SCREEN_W), int(event.y * SCREEN_H)))
+            self.touch_down(self.display.point(event))
         elif event.type == pygame.FINGERUP:
-            self.touch_up((int(event.x * SCREEN_W), int(event.y * SCREEN_H)))
+            self.touch_up(self.display.point(event))
         elif event.type == pygame.MOUSEBUTTONDOWN and not getattr(event, "touch", False):
-            self.touch_down(event.pos)
+            self.touch_down(self.display.point(event))
         elif event.type == pygame.MOUSEBUTTONUP and not getattr(event, "touch", False):
-            self.touch_up(event.pos)
+            self.touch_up(self.display.point(event))
         return True
 
     def run(self):
@@ -620,7 +613,7 @@ class WeatherDisplay:
                     pygame.quit()
                     return
             if self.frame():
-                pygame.display.flip()
+                self.display.present()
             # Plain sleep: SDL's event.wait() spins on KMS/DRM (no native wait), costing ~8% CPU
             time.sleep(POLL)
 

@@ -31,6 +31,7 @@ if "DISPLAY" not in os.environ and "WAYLAND_DISPLAY" not in os.environ:
     os.environ.setdefault("SDL_KMSDRM_DEVICE_INDEX", "0")
 os.environ.setdefault("PYGAME_HIDE_SUPPORT_PROMPT", "1")
 import pygame  # noqa: E402
+import pgscreen  # noqa: E402
 from pygame import gfxdraw  # noqa: E402
 import weather_icons  # noqa: E402
 
@@ -145,17 +146,10 @@ def wrap(text, font, width):
 class WorldClock:
     def __init__(self, screen=None, store=None):
         if screen is None:
-            # Display and fonts only: pygame.init() would also start audio (~5% CPU on a Pi 3)
-            pygame.display.init()
-            pygame.font.init()
-            pygame.mouse.set_visible(False)
-            # KMS/DRM fullscreen - on the HyperPixel even when an HDMI monitor is also connected
-            flags = pygame.FULLSCREEN | pygame.NOFRAME
-            sizes = pygame.display.get_desktop_sizes()
-            display = next((i for i, sz in enumerate(sizes) if sz == (SCREEN_W, SCREEN_H)), 0)
-            screen = pygame.display.set_mode((SCREEN_W, SCREEN_H), flags, display=display)
-            pygame.display.set_caption("World Clock")
+            self.display = pgscreen.Display(SCREEN_W, SCREEN_H, "World Clock")
+            screen = self.display.surface
         else:
+            self.display = None
             pygame.font.init()
         self.screen = screen
         self.store = store or cd.CityStore(CITIES)
@@ -705,15 +699,15 @@ class WorldClock:
                     return
                 # SDL also turns touches into mouse events; take the finger ones only
                 if event.type == pygame.FINGERDOWN:
-                    self.touch_down((int(event.x * SCREEN_W), int(event.y * SCREEN_H)))
+                    self.touch_down(self.display.point(event))
                 elif event.type == pygame.FINGERUP:
-                    self.touch_up((int(event.x * SCREEN_W), int(event.y * SCREEN_H)))
+                    self.touch_up(self.display.point(event))
                 elif event.type == pygame.MOUSEBUTTONDOWN and not getattr(event, "touch", False):
-                    self.touch_down(event.pos)
+                    self.touch_down(self.display.point(event))
                 elif event.type == pygame.MOUSEBUTTONUP and not getattr(event, "touch", False):
-                    self.touch_up(event.pos)
+                    self.touch_up(self.display.point(event))
             if self.frame():
-                pygame.display.flip()
+                self.display.present()
             time.sleep(POLL)
 
 

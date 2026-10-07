@@ -17,6 +17,7 @@ from unittest import mock
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT, "common"))
+os.environ["PI3_ROTATE"] = "0"                  # tests draw upright unless they say otherwise
 import pitouch  # noqa: E402
 
 
@@ -96,6 +97,93 @@ class TestPitouch(unittest.TestCase):
         self.assertAlmostEqual(ny, 0.5, places=2)
         self.assertGreaterEqual(held, 2.0)
         self.assertEqual(t.taps(0.05), [], "times out cleanly with no input")
+
+
+class TestRotation(unittest.TestCase):
+    """A Pi mounted upside down: "display": {"rotate": 180} turns drawing and touch over."""
+
+    def setUp(self):
+        pitouch._rotation = 180
+
+    def tearDown(self):
+        pitouch._rotation = None
+
+    def test_reads_the_setting(self):
+        pitouch._rotation = None
+        with mock.patch.dict(os.environ, {"PI3_ROTATE": "180"}):
+            self.assertEqual(pitouch.rotation(), 180)
+        pitouch._rotation = None
+        with mock.patch.dict(os.environ, {"PI3_ROTATE": "90"}):
+            self.assertEqual(pitouch.rotation(), 0, "only upright or upside down")
+        pitouch._rotation = None
+        os.environ.pop("PI3_ROTATE")
+        try:
+            with open(os.path.join(ROOT, "launcher/apps.json")) as f:
+                want = json.load(f).get("display", {}).get("rotate", 0)
+            self.assertEqual(pitouch.rotation(), want)
+        finally:
+            os.environ["PI3_ROTATE"] = "0"
+
+    def test_images_and_boxes_turned_over(self):
+        for bpp in (16, 32):
+            fake = FakeFramebuffer(bpp=bpp)
+            try:
+                screen = pitouch.Screen()
+                art = os.path.join(ROOT, "apps/booth-display/art/panel-paused.rgb.gz")
+                screen.blit(art)
+                rgb = gzip.open(art).read()
+                for x, y in ((0, 0), (240, 400), (479, 799), (10, 700)):
+                    i = (y * 480 + x) * 3
+                    self.assertEqual(fake.pixel(479 - x, 799 - y), pitouch.convert(rgb[i:i + 3], bpp), (bpp, x, y))
+                screen.fill(10, 700, 5, 3, (255, 0, 0))      # bottom-left upright -> top-right on the panel
+                red = pitouch.convert(bytes([255, 0, 0]), bpp)
+                self.assertEqual(fake.pixel(480 - 10 - 5, 800 - 700 - 3), red)
+                self.assertNotEqual(fake.pixel(12, 701), red)
+            finally:
+                fake.close()
+
+    def test_touches_turned_over(self):
+        t = pitouch.Touch.__new__(pitouch.Touch)
+        t.xr, t.yr = (0, 799), (0, 479)
+        nx, ny = t.norm(0, 0)                          # panel's top-left = the upright bottom-right
+        self.assertAlmostEqual((nx, ny), (1.0, 1.0))
+        nx, ny = t.norm(799 * 0.25, 479 * 0.1)
+        self.assertAlmostEqual(nx, 0.75)
+        self.assertAlmostEqual(ny, 0.9)
+
+
+try:
+    os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
+    import pygame
+    import pgscreen
+except ImportError:
+    pgscreen = None
+
+
+@unittest.skipUnless(pgscreen, "pygame not installed")
+class TestPygameRotation(unittest.TestCase):
+    def tearDown(self):
+        pitouch._rotation = None
+
+    def test_upside_down_frames_and_touches(self):
+        pitouch._rotation = 180
+        d = pgscreen.Display(480, 800, "test")
+        self.assertIsNot(d.surface, d.window, "draws off-screen, turned over on present()")
+        d.window = pygame.Surface((480, 800))           # the panel's size (the test display isn't)
+        d.surface.fill((0, 0, 0))
+        d.surface.fill((255, 0, 0), (0, 0, 10, 10))     # upright top-left...
+        d.present()
+        self.assertEqual(tuple(d.window.get_at((475, 795)))[:3], (255, 0, 0))  # ...shown bottom-right
+        finger = pygame.event.Event(pygame.FINGERDOWN, x=0.0, y=0.0)
+        self.assertEqual(d.point(finger), (479, 799))
+        click = pygame.event.Event(pygame.MOUSEBUTTONDOWN, pos=(479, 0), button=1)
+        self.assertEqual(d.point(click), (0, 799))
+
+    def test_upright_draws_straight_to_the_window(self):
+        pitouch._rotation = 0
+        d = pgscreen.Display(480, 800, "test")
+        self.assertIs(d.surface, d.window)
+        self.assertEqual(d.point(pygame.event.Event(pygame.FINGERDOWN, x=0.5, y=0.25)), (240, 200))
 
 
 class TestBoothTouch(unittest.TestCase):

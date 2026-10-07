@@ -1,6 +1,9 @@
 {
   "countdown": 10,
   "wifi": "ORBI61",
+  "display": {
+    "rotate": 180
+  },
   "layout": {
     "cols": 2,
     "rows": 2,

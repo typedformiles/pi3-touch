@@ -62,6 +62,7 @@ bash mac/status.sh            # what's running, recent logs, power
 bash mac/slides.sh [folder]   # replace the Booth Display slides
 bash mac/add-wifi.sh <SSID>   # save a Wi-Fi network on the Pi
 bash mac/set-tide-key.sh      # save the ADMIRALTY tide API key on the Pi (Weather's tides)
+bash mac/demo-tour.sh [delay] # hands-free ~80 s tour of the apps for filming (taps injected on the Pi)
 ```
 
 ## Wi-Fi per app
@@ -96,6 +97,10 @@ only when the network is in range and saved on the Pi - otherwise it stays put.
 - Its Goodix touch controller advertises landscape ranges (x 0-799, y 0-479), but raw x
   runs left-right and raw y top-bottom on the portrait panel - normalise each by its own
   range. (Assuming the long axis was vertical sent every tap to the middle button.)
+- Mounted upside down? Set `"display": {"rotate": 180}` in `launcher/apps.json` (0 for upright)
+  and deploy. Everything drawn on the HyperPixel turns over, and touches with it: the
+  framebuffer and touch reading in `common/pitouch.py`, and the pygame apps through
+  `common/pgscreen.py`. The HDMI output isn't affected.
 
 ## License
 
