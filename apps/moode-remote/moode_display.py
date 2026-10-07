@@ -17,7 +17,7 @@ from PIL import Image
 import urllib.request
 import urllib.parse
 
-# Use KMS/DRM driver on headless Pi (set before pygame.init)
+# Use KMS/DRM driver on headless Pi (set before pygame.display.init)
 if "DISPLAY" not in os.environ and "WAYLAND_DISPLAY" not in os.environ:
     os.environ.setdefault("SDL_VIDEODRIVER", "kmsdrm")
     # HyperPixel may appear as card0 or card1 — adjust if needed
@@ -28,7 +28,7 @@ MPD_HOST = "moode.local"
 MPD_PORT = 6600
 MOODE_URL = "http://moode.local"
 SCREEN_W, SCREEN_H = 480, 800
-FPS = 30
+FPS = 20                    # touch polling rate; the screen is only redrawn when something changes
 RECONNECT_INTERVAL = 5      # seconds between reconnect attempts
 POLL_INTERVAL = 1.0         # seconds between MPD status polls
 DIM_AFTER = 300             # seconds of inactivity before dimming (5 min)
@@ -92,7 +92,10 @@ def seconds_to_mmss(s):
 
 class MoodeDisplay:
     def __init__(self):
-        pygame.init()
+        # Display and fonts only: pygame.init() would also start audio, whose threads
+        # cost ~5% CPU on a Pi 3 playing silence
+        pygame.display.init()
+        pygame.font.init()
         pygame.mouse.set_visible(False)
 
         # KMS/DRM fullscreen - on the HyperPixel even when an HDMI monitor is also connected
@@ -128,6 +131,7 @@ class MoodeDisplay:
         self.brightness    = 255
         self._prev_uri     = None
         self._prev_state   = None
+        self._drawn        = None   # what the frame on screen showed (see run)
 
         # Touch button rects (defined in draw, stored for hit testing)
         self.btn_prev = None
@@ -472,6 +476,9 @@ class MoodeDisplay:
 
     # ── Dimming ───────────────────────────────────────────────────────────────
 
+    def _update_dim(self):
+        self.dimmed = time.time() - self.last_touch > DIM_AFTER
+
     def _apply_dim(self):
         if self.sleeping:
             # Manual sleep — near-black
@@ -479,12 +486,6 @@ class MoodeDisplay:
             dim.fill((0, 0, 0, 245))
             self.screen.blit(dim, (0, 0))
             return
-
-        idle = time.time() - self.last_touch
-        if idle > DIM_AFTER and not self.dimmed:
-            self.dimmed = True
-        elif idle <= DIM_AFTER and self.dimmed:
-            self.dimmed = False
 
         if self.dimmed:
             dim = pygame.Surface((SCREEN_W, SCREEN_H), pygame.SRCALPHA)
@@ -580,6 +581,16 @@ class MoodeDisplay:
                         self.last_touch = time.time()
                 self._prev_uri   = cur_uri
                 self._prev_state = cur_state
+
+            # Redraw only when something on screen would change. MPD is polled once a
+            # second, so even the progress bar needs no more; 30 FPS cost ~55% of a Pi 3 core.
+            self._update_dim()
+            drawn = (connected, sorted(status.items()), sorted(song.items()), id(self.art_surface),
+                     self.dimmed, self.sleeping, time.strftime("%H:%M"))
+            if drawn == self._drawn:
+                self.clock.tick(FPS)
+                continue
+            self._drawn = drawn
 
             self._draw_background()
             self._draw_status_bar()         # always - it holds the Home button
