@@ -88,8 +88,22 @@ def icon_clock(d, s):                       # a clock face with an orbit, for "w
     d.ellipse([c - s * .03, c - s * .03, c + s * .03, c + s * .03], fill=VIOLET)
 
 
+def icon_energy(d, s):                      # a green leaf with a lightning bolt over it
+    pts = []
+    for i in range(31):                     # two arcs from the stalk (bottom left) to the tip
+        t = i / 30
+        pts.append((s * (.16 + .68 * t) + s * .2 * math.sin(math.pi * t), s * (.84 - .68 * t) + s * .2 * math.sin(math.pi * t)))
+    for i in range(30, -1, -1):
+        t = i / 30
+        pts.append((s * (.16 + .68 * t) - s * .2 * math.sin(math.pi * t), s * (.84 - .68 * t) - s * .2 * math.sin(math.pi * t)))
+    d.polygon(pts, fill=(80, 200, 130))
+    d.line([(s * .1, s * .9), (s * .3, s * .7)], fill=(80, 200, 130), width=round(s * .05))
+    d.polygon([(s * .56, s * .14), (s * .3, s * .54), (s * .48, s * .54), (s * .4, s * .86),
+               (s * .7, s * .42), (s * .52, s * .42), (s * .62, s * .14)], fill=(250, 204, 70))
+
+
 ICONS = {"booth-display": icon_booth, "moode-remote": icon_moode, "weather": icon_weather,
-         "world-clock": icon_clock}
+         "world-clock": icon_clock, "energy": icon_energy}
 
 
 def icon(app, size):

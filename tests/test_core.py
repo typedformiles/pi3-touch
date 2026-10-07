@@ -302,11 +302,12 @@ class TestLauncher(unittest.TestCase):
         return (x + w / 2) / pitouch.PW, (y + h / 2) / pitouch.PH
 
     def more_apps(self, n):
-        """Pad the config with n extra apps so the menu needs more pages (which have no art)."""
+        """One page of real apps, then n extra ones so the menu needs more pages (which have no art)."""
         for name in ("draw_menu", "draw_banner"):
             p = mock.patch.object(launcher.Launcher, name, lambda self, *a: None)
             p.start()
             self.patches.append(p)
+        del self.cfg["apps"][launcher.per_page(self.cfg):]
         for i in range(n):
             self.cfg["apps"].append({"id": f"extra-{i}", "name": f"Extra {i}", "blurb": "", "target": f"extra-{i}.target"})
 
@@ -325,6 +326,7 @@ class TestLauncher(unittest.TestCase):
             self.assertTrue(x >= 0 and x + w <= pitouch.PW and y + h < L["dots_y"] < L["banner_top"])
 
     def test_pages_and_dots(self):
+        self.more_apps(0)
         self.assertEqual(launcher.page_count(self.cfg), 1)
         self.assertEqual(launcher.dot_centres(self.cfg), [], "no dots for one page")
         self.more_apps(4)

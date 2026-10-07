@@ -10,6 +10,7 @@ counts down and restarts whatever was running last.
 | [Moode Remote](apps/moode-remote/) | "Now playing" screen and controls for a [Moode Audio](https://moodeaudio.org/) player on the network. |
 | [Weather](apps/weather/) | Conditions, wind for sailing, 7-day forecast and - at the coast - tides, for a few saved places. |
 | [World Clock](apps/world-clock/) | Six cities as analogue clocks, each face coloured by that city's sky right now. |
+| [Energy & Grid](apps/energy/) | How clean the electricity is now, the generation mix, and the greenest hours of the next two days to plug in. |
 
 ## Layout
 

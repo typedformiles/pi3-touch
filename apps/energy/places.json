@@ -1,0 +1,8 @@
+{
+  "cycle_seconds": 15,
+  "window_hours": 3,
+  "places": [
+    {"name": "Maidenhead", "postcode": "SL6"},
+    {"name": "Great Britain"}
+  ]
+}

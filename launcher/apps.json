@@ -41,6 +41,12 @@
       "name": "World Clock",
       "blurb": "Six cities, day and night",
       "target": "pi3-app-world-clock.target"
+    },
+    {
+      "id": "energy",
+      "name": "Energy & Grid",
+      "blurb": "When the grid is greenest",
+      "target": "pi3-app-energy.target"
     }
   ]
 }
