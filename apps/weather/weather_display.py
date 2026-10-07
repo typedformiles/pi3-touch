@@ -28,7 +28,7 @@ import pygame  # noqa: E402
 
 # ── Config ────────────────────────────────────────────────────────────────────
 SCREEN_W, SCREEN_H = 480, 800
-FPS = 10
+POLL = 0.05                 # seconds between checks for touches, new data and the time
 DIM_AFTER = 300             # seconds of inactivity before dimming (5 min)
 DIM_BRIGHTNESS = 120        # 0-255 (higher = brighter when dimmed)
 CYCLE_IDLE = 60             # with cycle_seconds set: start cycling pages after this idle time
@@ -108,7 +108,10 @@ class WeatherDisplay:
         self.store = store
 
         if screen is None:
-            pygame.init()
+            # Display and fonts only: pygame.init() would also start audio, whose threads
+            # cost ~5% CPU on a Pi 3 playing silence
+            pygame.display.init()
+            pygame.font.init()
             pygame.mouse.set_visible(False)
             # KMS/DRM fullscreen - on the HyperPixel even when an HDMI monitor is also connected
             flags = pygame.FULLSCREEN | pygame.NOFRAME
@@ -119,7 +122,6 @@ class WeatherDisplay:
         else:
             pygame.font.init()
         self.screen = screen
-        self.clock = pygame.time.Clock()
 
         self.f_huge  = load_font(84, bold=True)
         self.f_big   = load_font(40, bold=True)
@@ -141,6 +143,7 @@ class WeatherDisplay:
         self.down = None            # where the current touch started
         self.buttons = {}           # name -> Rect, rebuilt every frame
         self.cache = {}             # (location, kind, fetched) -> parsed data
+        self.drawn = None           # state() of the frame on screen
 
     # ── Helpers ───────────────────────────────────────────────────────────────
 
@@ -162,7 +165,7 @@ class WeatherDisplay:
         pygame.draw.rect(self.screen, colour, rect, border_radius=radius)
 
     def parsed(self, kind, parse):
-        """The current location's data, parsed once per fetch (we redraw 10 times a second)."""
+        """The current location's data, parsed once per fetch."""
         entry = self.store.get(self.loc, kind)
         if not entry:
             return None
@@ -623,25 +626,49 @@ class WeatherDisplay:
 
     # ── Main loop ─────────────────────────────────────────────────────────────
 
+    def state(self, now):
+        """Everything on screen depends on: what's selected, dimming, the minute and the data."""
+        data = tuple((self.store.get(self.loc, k) or {}).get("fetched") for k in ("weather", "tides"))
+        errors = tuple(self.store.error(self.loc, k) for k in ("weather", "tides"))
+        return (self.loc_i, self.page, self.tide_day, self.dimmed, self.sleeping,
+                now.strftime("%Y-%m-%d %H:%M"), data, errors)
+
+    def frame(self, now=None):
+        """Redraw only if something on screen would change (a Pi 3 at 10 FPS runs warm).
+        Returns True if it drew."""
+        now = now or datetime.now(wd.LOCAL)
+        self.tick()
+        if self.state(now) == self.drawn:
+            return False
+        self.draw(now)
+        self.drawn = self.state(now)            # after drawing: draw() can settle page / tide_day
+        return True
+
+    def handle(self, event):
+        """One pygame event. Returns False to quit."""
+        if event.type == pygame.QUIT or (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE):
+            return False
+        # SDL also turns touches into mouse events; take the finger ones only
+        if event.type == pygame.FINGERDOWN:
+            self.touch_down((int(event.x * SCREEN_W), int(event.y * SCREEN_H)))
+        elif event.type == pygame.FINGERUP:
+            self.touch_up((int(event.x * SCREEN_W), int(event.y * SCREEN_H)))
+        elif event.type == pygame.MOUSEBUTTONDOWN and not getattr(event, "touch", False):
+            self.touch_down(event.pos)
+        elif event.type == pygame.MOUSEBUTTONUP and not getattr(event, "touch", False):
+            self.touch_up(event.pos)
+        return True
+
     def run(self):
         while True:
             for event in pygame.event.get():
-                if event.type == pygame.QUIT or (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE):
+                if not self.handle(event):
                     pygame.quit()
                     return
-                # SDL also turns touches into mouse events; take the finger ones only
-                if event.type == pygame.FINGERDOWN:
-                    self.touch_down((int(event.x * SCREEN_W), int(event.y * SCREEN_H)))
-                elif event.type == pygame.FINGERUP:
-                    self.touch_up((int(event.x * SCREEN_W), int(event.y * SCREEN_H)))
-                elif event.type == pygame.MOUSEBUTTONDOWN and not getattr(event, "touch", False):
-                    self.touch_down(event.pos)
-                elif event.type == pygame.MOUSEBUTTONUP and not getattr(event, "touch", False):
-                    self.touch_up(event.pos)
-            self.tick()
-            self.draw()
-            pygame.display.flip()
-            self.clock.tick(FPS)
+            if self.frame():
+                pygame.display.flip()
+            # Plain sleep: SDL's event.wait() spins on KMS/DRM (no native wait), costing ~8% CPU
+            time.sleep(POLL)
 
 
 if __name__ == "__main__":

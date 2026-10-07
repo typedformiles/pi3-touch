@@ -35,8 +35,8 @@ Places are listed in `locations.json`:
 ```
 
 `tide_station` is an ADMIRALTY station name. The app looks the name up once and
-remembers it. `cycle_seconds` (default 0, meaning off) makes the pages advance by
-themselves after a minute without a touch. Deploy again after editing.
+remembers it. `cycle_seconds` (15 here; 0 turns it off) makes the pages advance by
+themselves once nobody has touched the screen for a minute. Deploy again after editing.
 
 ## Data
 

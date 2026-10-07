@@ -288,6 +288,38 @@ class TestScreens(unittest.TestCase):
         self.tap_button("loc0")                      # inland: no Tides page, back to Now
         self.assertEqual(self.app.page, "Now")
 
+    def test_redraws_only_when_something_changes(self):
+        now = self.now
+        self.assertTrue(self.app.frame(now), "first frame")
+        self.assertFalse(self.app.frame(now + timedelta(seconds=20)), "same minute, nothing new")
+        self.assertTrue(self.app.frame(now + timedelta(minutes=1)), "clock and countdowns move on")
+        now += timedelta(minutes=1)
+        self.store.refresh()                         # weather arrives
+        self.assertTrue(self.app.frame(now))
+        self.assertFalse(self.app.frame(now))
+        self.tap_button("page:Wind")
+        self.assertTrue(self.app.frame(now), "page changed")
+        self.app.last_touch -= weather_display.DIM_AFTER + 1
+        self.assertTrue(self.app.frame(now), "dimmed")
+        self.assertFalse(self.app.frame(now))
+
+    def test_pages_cycle_after_a_minute_untouched(self):
+        self.app.cycle_seconds = 15
+        self.app.loc_i = 1                           # coastal: Now, Wind, Week, Tides
+        self.app.tick()
+        self.assertEqual(self.app.page, "Now", "touched recently - leave it alone")
+        self.app.last_touch -= weather_display.CYCLE_IDLE + 1
+        self.app.last_cycle -= 16
+        seen = []
+        for _ in range(5):
+            self.app.tick()
+            seen.append(self.app.page)
+            self.app.last_cycle -= 16
+        self.assertEqual(seen, ["Wind", "Week", "Tides", "Now", "Wind"])
+        self.app.tick()
+        self.app.tick()
+        self.assertEqual(self.app.page, "Week", "no faster than every cycle_seconds")
+
     def test_swipe_turns_pages(self):
         self.app.draw(self.now)
         self.app.touch_down((400, 400))
