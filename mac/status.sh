@@ -6,6 +6,6 @@ ssh -i "$KEY" -o ConnectTimeout=15 tim@"$PI" '
 echo "== $(hostname), up $(uptime -p | sed "s/up //")"
 echo "== screens"; for c in /sys/class/drm/card*-HDMI-A-1 /sys/class/drm/card*-DPI-1; do [ -e $c ] && echo "  $(basename $c): $(cat $c/status) $(head -1 $c/modes)"; done
 echo "== last app: $(cat /var/lib/pi3-touch/last-app 2>/dev/null || echo none)"
-for u in pi3-launcher pi3-booth-show pi3-booth-touch pi3-moode-remote pi3-weather; do printf "  %-18s %s\n" $u "$(systemctl is-active $u)"; done
-echo "== recent"; journalctl -b --no-pager -o short -n 12 -u pi3-launcher -u pi3-booth-show -u pi3-booth-touch -u pi3-moode-remote -u pi3-weather -u pi3-home | grep -v "VT "
+for u in pi3-launcher pi3-booth-show pi3-booth-touch pi3-moode-remote pi3-weather pi3-world-clock; do printf "  %-18s %s\n" $u "$(systemctl is-active $u)"; done
+echo "== recent"; journalctl -b --no-pager -o short -n 12 -u pi3-launcher -u pi3-booth-show -u pi3-booth-touch -u pi3-moode-remote -u pi3-weather -u pi3-world-clock -u pi3-home | grep -v "VT "
 echo "== power"; vcgencmd get_throttled'

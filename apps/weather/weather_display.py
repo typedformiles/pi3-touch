@@ -17,7 +17,7 @@ from datetime import datetime, timedelta
 
 HERE = os.path.dirname(os.path.realpath(__file__))
 sys.path.insert(0, HERE)
-import weather_data as wd  # noqa: E402
+import weather_data as wd  # noqa: E402  (also puts common/ on the path)
 
 # Use KMS/DRM driver on headless Pi (set before pygame.init)
 if "DISPLAY" not in os.environ and "WAYLAND_DISPLAY" not in os.environ:
@@ -25,6 +25,7 @@ if "DISPLAY" not in os.environ and "WAYLAND_DISPLAY" not in os.environ:
     os.environ.setdefault("SDL_KMSDRM_DEVICE_INDEX", "0")
 os.environ.setdefault("PYGAME_HIDE_SUPPORT_PROMPT", "1")
 import pygame  # noqa: E402
+import weather_icons  # noqa: E402
 
 # ── Config ────────────────────────────────────────────────────────────────────
 SCREEN_W, SCREEN_H = 480, 800
@@ -34,7 +35,7 @@ DIM_BRIGHTNESS = 120        # 0-255 (higher = brighter when dimmed)
 CYCLE_IDLE = 60             # with cycle_seconds set: start cycling pages after this idle time
 SWIPE = 80                  # px of sideways travel that counts as a swipe
 HOME_REQUEST = "/run/pi3-touch/request-home"   # Pi3 Touch launcher picks this up
-FONT_DIR = os.environ.get("WEATHER_FONT_DIR", "/usr/share/fonts/truetype/dejavu")
+FONT_DIR = os.environ.get("PI3_FONT_DIR", "/usr/share/fonts/truetype/dejavu")
 
 # ── Colours ───────────────────────────────────────────────────────────────────
 BG          = (10,  16,  26)
@@ -46,9 +47,6 @@ TEXT_DIM    = (88,  102, 122)
 ACCENT      = (72,  164, 230)   # sea blue
 ACCENT_DIM  = (30,  64,  98)
 GRID        = (36,  50,  70)
-SUN         = (250, 196, 64)
-CLOUD       = (176, 188, 204)
-CLOUD_DARK  = (120, 132, 150)
 RAIN        = (96,  170, 240)
 OK_GREEN    = (80,  200, 120)
 STALE       = (230, 170, 60)
@@ -202,52 +200,8 @@ class WeatherDisplay:
         """Wind arrows point the way the wind blows (from_deg + 180), as on weather maps."""
         self.draw_arrow(cx, cy, length, (from_deg or 0) + 180, colour, width)
 
-    def draw_cloud(self, cx, cy, s, colour):
-        pygame.draw.circle(self.screen, colour, (int(cx - s * 0.22), int(cy + s * 0.04)), int(s * 0.2))
-        pygame.draw.circle(self.screen, colour, (int(cx + s * 0.05), int(cy - s * 0.08)), int(s * 0.27))
-        pygame.draw.circle(self.screen, colour, (int(cx + s * 0.28), int(cy + s * 0.06)), int(s * 0.18))
-        pygame.draw.rect(self.screen, colour, (cx - s * 0.22, cy + s * 0.04, s * 0.5, s * 0.2))
-
-    def draw_sun(self, cx, cy, s, is_day=True):
-        r = s * 0.2
-        if not is_day:                                   # crescent moon
-            pygame.draw.circle(self.screen, (220, 226, 240), (int(cx), int(cy)), int(r * 1.2))
-            pygame.draw.circle(self.screen, BG_CARD, (int(cx + r * 0.6), int(cy - r * 0.4)), int(r * 1.05))
-            return
-        for i in range(8):
-            a = math.radians(i * 45)
-            pygame.draw.line(self.screen, SUN, (cx + math.cos(a) * r * 1.45, cy + math.sin(a) * r * 1.45),
-                             (cx + math.cos(a) * r * 2.0, cy + math.sin(a) * r * 2.0), max(2, int(s / 30)))
-        pygame.draw.circle(self.screen, SUN, (int(cx), int(cy)), int(r))
-
-    def draw_icon(self, code, is_day, cx, cy, s):
-        kind = wd.describe(code)[1]
-        if kind == "clear":
-            self.draw_sun(cx, cy, s * 1.2, is_day)
-            return
-        if kind in ("partly", "showers"):
-            self.draw_sun(cx - s * 0.18, cy - s * 0.2, s * 0.9, is_day)
-        dark = kind in ("rain", "thunder", "drizzle", "snow")
-        self.draw_cloud(cx, cy - s * 0.05, s, CLOUD_DARK if dark else CLOUD)
-        w = max(2, int(s / 28))
-        if kind in ("rain", "showers", "drizzle"):
-            n = 2 if kind == "drizzle" else 3
-            for i in range(n):
-                x = cx - s * 0.16 + i * s * 0.17
-                pygame.draw.line(self.screen, RAIN, (x, cy + s * 0.28), (x - s * 0.07, cy + s * 0.45), w)
-        elif kind == "snow":
-            for i in range(3):
-                pygame.draw.circle(self.screen, TEXT_PRI, (int(cx - s * 0.16 + i * s * 0.17), int(cy + s * 0.37)),
-                                   max(2, int(s / 22)))
-        elif kind == "thunder":
-            x, y = cx, cy + s * 0.22
-            pygame.draw.polygon(self.screen, SUN, [(x, y), (x - s * 0.1, y + s * 0.16), (x, y + s * 0.16),
-                                                    (x - s * 0.06, y + s * 0.3), (x + s * 0.1, y + s * 0.1),
-                                                    (x + s * 0.01, y + s * 0.1), (x + s * 0.06, y)])
-        elif kind == "fog":
-            for i in range(3):
-                y = cy + s * 0.26 + i * s * 0.1
-                pygame.draw.line(self.screen, CLOUD, (cx - s * 0.3, y), (cx + s * 0.3, y), w)
+    def draw_icon(self, code, is_day, cx, cy, s, bg=BG_CARD):
+        weather_icons.draw_icon(self.screen, code, is_day, cx, cy, s, bg)
 
     # ── Chrome: status bar, locations, page tabs ─────────────────────────────
 

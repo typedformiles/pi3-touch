@@ -143,19 +143,23 @@ class Stop(Exception):
 
 
 class FakeTouch:
-    """Feeds scripted taps: list of (at_seconds, nx, ny). Set .stopped to end the launcher loop."""
+    """Feeds scripted touches: (at_seconds, nx, ny) taps, or (at_seconds, nx, ny, start_nx, start_ny)
+    swipes. Set .stopped to end the launcher loop."""
 
     def __init__(self, script):
         self.script, self.t0, self.stopped = sorted(script), time.time(), False
 
-    def taps(self, timeout):
+    def touches(self, timeout):
         if self.stopped:
             raise Stop
         time.sleep(min(timeout, 0.02))
         now = time.time() - self.t0
         due = [s for s in self.script if s[0] <= now]
         self.script = [s for s in self.script if s[0] > now]
-        return [(nx, ny, 0.1) for _, nx, ny in due]
+        return [(s[1], s[2], 0.1, *(s[3:] or s[1:3])) for s in due]
+
+    def taps(self, timeout):
+        return [t[:3] for t in self.touches(timeout)]
 
 
 class TestLauncher(unittest.TestCase):
@@ -191,7 +195,8 @@ class TestLauncher(unittest.TestCase):
 
         def go():
             try:
-                launcher.Launcher(self.cfg, pitouch.Screen()).run(touch)
+                self.launcher = launcher.Launcher(self.cfg, pitouch.Screen())
+                self.launcher.run(touch)
             except SystemExit:
                 result["exited"] = True
             except Stop:
@@ -205,13 +210,66 @@ class TestLauncher(unittest.TestCase):
         return result.get("exited", False)
 
     def card_centre(self, i):
-        x, y, w, h = launcher.card_rects(self.cfg)[i]
+        _, x, y, w, h = launcher.tile_rects(self.cfg)[i]
         return (x + w / 2) / pitouch.PW, (y + h / 2) / pitouch.PH
 
-    def test_cards_hit_test(self):
+    def more_apps(self, n):
+        """Pad the config with n extra apps so the menu needs more pages (which have no art)."""
+        for name in ("draw_menu", "draw_banner"):
+            p = mock.patch.object(launcher.Launcher, name, lambda self, *a: None)
+            p.start()
+            self.patches.append(p)
+        for i in range(n):
+            self.cfg["apps"].append({"id": f"extra-{i}", "name": f"Extra {i}", "blurb": "", "target": f"extra-{i}.target"})
+
+    def test_tiles_hit_test(self):
         for i, app in enumerate(self.cfg["apps"]):
-            self.assertEqual(launcher.app_at(self.cfg, *self.card_centre(i))["id"], app["id"])
-        self.assertIsNone(launcher.app_at(self.cfg, 0.5, 0.05), "title area isn't a card")
+            page = launcher.tile_rects(self.cfg)[i][0]
+            self.assertEqual(launcher.app_at(self.cfg, page, *self.card_centre(i))["id"], app["id"])
+        self.assertIsNone(launcher.app_at(self.cfg, 0, 0.5, 0.05), "title area isn't a tile")
+        self.assertIsNone(launcher.app_at(self.cfg, 0, 0.5, launcher.tile_rects(self.cfg)[0][2] / pitouch.PH + 0.14),
+                          "gap between tiles")
+
+    def test_tiles_fit_above_the_banner(self):
+        self.more_apps(8)
+        L = self.cfg["layout"]
+        for _, x, y, w, h in launcher.tile_rects(self.cfg):
+            self.assertTrue(x >= 0 and x + w <= pitouch.PW and y + h < L["dots_y"] < L["banner_top"])
+
+    def test_pages_and_dots(self):
+        self.assertEqual(launcher.page_count(self.cfg), 1)
+        self.assertEqual(launcher.dot_centres(self.cfg), [], "no dots for one page")
+        self.more_apps(4)
+        self.assertEqual(launcher.page_count(self.cfg), 2)
+        self.assertEqual([p for p, *_ in launcher.tile_rects(self.cfg)], [0, 0, 0, 0, 1, 1, 1, 1])
+        (x0, y), (x1, _) = launcher.dot_centres(self.cfg)
+        self.assertEqual(launcher.dot_at(self.cfg, x1 / pitouch.PW, y / pitouch.PH), 1)
+        self.assertEqual(launcher.dot_at(self.cfg, x0 / pitouch.PW, (y + 20) / pitouch.PH), 0)
+        self.assertIsNone(launcher.dot_at(self.cfg, 0.5, 0.2))
+
+    def test_swipe_detection(self):
+        self.assertEqual(launcher.swipe(0.2, 0.5, 0.8, 0.5), 1, "right to left: next page")
+        self.assertEqual(launcher.swipe(0.8, 0.5, 0.2, 0.52), -1, "left to right: previous page")
+        self.assertEqual(launcher.swipe(0.52, 0.5, 0.5, 0.5), 0, "a tap that wobbled")
+        self.assertEqual(launcher.swipe(0.3, 0.9, 0.5, 0.2), 0, "mostly vertical")
+
+    def test_swipe_turns_page_and_taps_hit_that_page(self):
+        self.more_apps(4)
+        nx, ny = self.card_centre(4)                    # first tile on page 2
+        self.assertTrue(self.run_launcher([(0.05, 0.1, 0.5, 0.9, 0.5), (0.2, nx, ny)]))
+        self.assertEqual(self.started[-1][-1], "extra-0.target")
+
+    def test_swipe_never_launches(self):
+        nx, ny = self.card_centre(0)
+        self.assertFalse(self.run_launcher([(0.05, nx - 0.4, ny, nx, ny)], max_s=1.0))
+        self.assertEqual(self.started, [])
+
+    def test_countdown_shows_the_last_apps_page(self):
+        self.more_apps(4)
+        with open(self.dir + "/last-app", "w") as f:
+            f.write("extra-2")
+        self.assertFalse(self.run_launcher([(0.05, 0.5, 0.05)], max_s=1.0), "tap cancels the countdown")
+        self.assertEqual(self.launcher.page, 1)
 
     def test_tap_starts_app_and_remembers_it(self):
         nx, ny = self.card_centre(1)
@@ -247,6 +305,8 @@ class TestLauncher(unittest.TestCase):
         self.assertEqual(self.wifi, ["ORBI61", "ORBI61"])
 
     def test_every_app_has_art_and_systemd_target(self):
+        for page in range(launcher.page_count(self.cfg)):
+            self.assertTrue(os.path.exists(os.path.join(ROOT, "launcher/art", f"menu-{page + 1}.rgb.gz")))
         for app in self.cfg["apps"]:
             self.assertTrue(os.path.exists(os.path.join(ROOT, "launcher/art", f"banner-{app['id']}.rgb.gz")))
             self.assertTrue(os.path.exists(os.path.join(ROOT, "pi/systemd", app["target"])))

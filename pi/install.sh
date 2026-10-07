@@ -17,10 +17,10 @@ step() { echo; echo "===== $*"; }
 id "$USER_NAME" >/dev/null || { echo "no such user: $USER_NAME (set PI_USER)"; exit 1; }
 
 step "packages"
-PKGS="mpv python3 python3-pygame python3-mpd python3-pil libgbm1 libegl1"
+PKGS="mpv python3 python3-pygame python3-pil libgbm1 libegl1"
 installed() { dpkg -s "$1" >/dev/null 2>&1; }
 MISSING=$(for p in $PKGS; do
-  installed "$p" || { [ "$p" = python3-mpd ] && installed python3-mpd2; } || echo "$p"
+  installed "$p" || echo "$p"
 done)
 if [ -z "$MISSING" ]; then
   echo "all installed"
@@ -28,10 +28,6 @@ elif [ -n "$SKIP_APT" ]; then
   echo "SKIP_APT set - not installing: $MISSING"
 else
   apt-get update -q
-  # The MPD client library is python3-mpd on newer Debian, python3-mpd2 on some older images
-  MISSING=$(for p in $MISSING; do
-    [ "$p" = python3-mpd ] && ! apt-cache show python3-mpd >/dev/null 2>&1 && p=python3-mpd2; echo "$p"
-  done)
   # --no-install-recommends: mpv's recommends alone pull in ~190 MB on Lite
   DEBIAN_FRONTEND=noninteractive apt-get install -y -q --no-install-recommends $MISSING
 fi
@@ -73,6 +69,15 @@ du -sh $DEST
 step "systemd units"
 for f in "$REPO"/pi/systemd/*.service "$REPO"/pi/systemd/*.target "$REPO"/pi/systemd/*.path; do
   sed "s/@USER@/$USER_NAME/g" "$f" > /etc/systemd/system/$(basename "$f")
+done
+# Only one app owns the screens at a time: each app's target stops any other running app,
+# however it was started (the launcher's own Conflicts= only covers going via the menu)
+rm -f /etc/systemd/system/pi3-app-*.target.d/one-app.conf
+TARGETS=$(cd "$REPO"/pi/systemd && ls pi3-app-*.target)
+for t in $TARGETS; do
+  mkdir -p /etc/systemd/system/$t.d
+  printf '[Unit]\n# Written by install.sh\nConflicts=%s\n' "$(echo $TARGETS | tr ' ' '\n' | grep -vx "$t" | tr '\n' ' ')" \
+    > /etc/systemd/system/$t.d/one-app.conf
 done
 sed "s/@USER@/$USER_NAME/g" "$REPO"/pi/systemd/pi3-touch.tmpfiles > /etc/tmpfiles.d/pi3-touch.conf
 systemd-tmpfiles --create /etc/tmpfiles.d/pi3-touch.conf

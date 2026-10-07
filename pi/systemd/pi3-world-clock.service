@@ -1,6 +1,6 @@
 [Unit]
-Description=Moode Remote: now playing, up next and 4U on the HyperPixel
-PartOf=pi3-app-moode-remote.target
+Description=World Clock: six cities on the HyperPixel
+PartOf=pi3-app-world-clock.target
 After=pi3-launcher.service network-online.target
 Wants=network-online.target
 
@@ -13,8 +13,8 @@ OnFailure=pi3-home.service
 User=@USER@
 Environment=SDL_VIDEODRIVER=kmsdrm
 Environment=SDL_KMSDRM_DEVICE_INDEX=0
-# Remembers who's listening (owned by @USER@)
-StateDirectory=pi3-touch-moode-remote
-ExecStart=/usr/bin/python3 /opt/pi3-touch/apps/moode-remote/moode_display.py
+# Cached city data (owned by @USER@), so a city opens instantly
+StateDirectory=pi3-touch-world-clock
+ExecStart=/usr/bin/python3 /opt/pi3-touch/apps/world-clock/world_clock.py
 Restart=always
 RestartSec=5

@@ -2,10 +2,14 @@
   "countdown": 10,
   "wifi": "ORBI61",
   "layout": {
-    "card_top": 160,
-    "card_height": 136,
-    "card_gap": 22,
-    "card_margin": 30,
+    "cols": 2,
+    "rows": 2,
+    "margin": 24,
+    "gap": 18,
+    "tile_top": 150,
+    "tile_height": 222,
+    "dots_y": 626,
+    "dot_spacing": 36,
     "banner_top": 640,
     "banner_height": 160
   },
@@ -20,7 +24,7 @@
     {
       "id": "moode-remote",
       "name": "Moode Remote",
-      "blurb": "Now playing from moode.local",
+      "blurb": "Now playing on Moode",
       "target": "pi3-app-moode-remote.target"
     },
     {
@@ -28,6 +32,12 @@
       "name": "Weather",
       "blurb": "Wind, forecast and tides",
       "target": "pi3-app-weather.target"
+    },
+    {
+      "id": "world-clock",
+      "name": "World Clock",
+      "blurb": "Six cities, day and night",
+      "target": "pi3-app-world-clock.target"
     }
   ]
 }

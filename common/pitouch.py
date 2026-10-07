@@ -64,7 +64,8 @@ def absrange(fd, code):
 
 
 class Touch:
-    """Taps on the HyperPixel as portrait-normalised (x, y) in 0..1 plus how long they were held.
+    """Touches on the HyperPixel as portrait-normalised (x, y) in 0..1: taps() gives where each
+    finger lifted and how long it was held; touches() also gives where it went down (swipes).
 
     The Goodix controller advertises landscape ranges (x 0-799, y 0-479), but its raw x runs
     left-to-right and its raw y top-to-bottom on the portrait panel - so normalising each axis
@@ -90,6 +91,7 @@ class Touch:
         self.name, self.dev = name, dev
         self._x = self._y = 0
         self._down = None
+        self._start = (0, 0)
         log(f"touch: {name} ({dev}) x{self.xr} y{self.yr}")
 
     def norm(self, x, y):
@@ -98,6 +100,14 @@ class Touch:
 
     def taps(self, timeout):
         """Wait up to `timeout` s; return a list of (nx, ny, held_seconds) for fingers lifted."""
+        return [(nx, ny, held) for nx, ny, held, _, _ in self.touches(timeout)]
+
+    def touches(self, timeout):
+        """Like taps(), with where each touch started: (nx, ny, held_seconds, start_nx, start_ny).
+
+        The panel reports a finger's position before its BTN_TOUCH press, so the position
+        when the press arrives is where it went down.
+        """
         out = []
         r, _, _ = select.select([self.fd], [], [], timeout)
         if not r:
@@ -112,10 +122,11 @@ class Touch:
             elif typ == EV_KEY and code == BTN_TOUCH:
                 if val == 1:
                     self._down = time.time()
+                    self._start = (self._x, self._y)
                 elif val == 0:
                     held = time.time() - self._down if self._down else 0.0
                     self._down = None
-                    out.append((*self.norm(self._x, self._y), held))
+                    out.append((*self.norm(self._x, self._y), held, *self.norm(*self._start)))
         return out
 
 

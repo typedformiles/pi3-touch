@@ -9,6 +9,7 @@ counts down and restarts whatever was running last.
 | [Booth Display](apps/booth-display/) | Slides full screen on an HDMI monitor; the HyperPixel becomes a Previous / Pause / Next remote. |
 | [Moode Remote](apps/moode-remote/) | "Now playing" screen and controls for a [Moode Audio](https://moodeaudio.org/) player on the network. |
 | [Weather](apps/weather/) | Conditions, wind for sailing, 7-day forecast and - at the coast - tides, for a few saved places. |
+| [World Clock](apps/world-clock/) | Six cities as analogue clocks, each face coloured by that city's sky right now. |
 
 ## Layout
 
@@ -24,15 +25,18 @@ tests/          off-Pi tests (python3 -m unittest discover tests; lua tests/test
 ## How it works on the Pi
 
 - Everything installs to `/opt/pi3-touch`.
-- `pi3-launcher.service` starts at boot and draws the menu. Choosing an app starts its
-  systemd target (`pi3-app-<id>.target`), which conflicts with the launcher - so exactly
-  one thing owns the screens at a time. That matters: only one program can drive the
+- `pi3-launcher.service` starts at boot and draws the menu: the apps as tiles, 2 x 2 per
+  page (swipe sideways or tap the dots for more pages). Choosing an app starts its
+  systemd target (`pi3-app-<id>.target`), which conflicts with the launcher and with every
+  other app's target (the installer writes those) - so exactly one thing owns the screens
+  at a time, however an app was started. That matters: only one program can drive the
   Pi's display hardware, which is also why HyperPixel panels are drawn straight into
   the framebuffer (`/dev/fb0`) instead of through a graphics library.
 - An app asks for the menu by creating `/run/pi3-touch/request-home`;
   `pi3-home.path` notices and starts the launcher.
 - The last app is remembered in `/var/lib/pi3-touch/last-app`; the menu counts down
-  10 s and starts it again. Tap a card to choose, anywhere else to stay on the menu.
+  10 s and starts it again (showing the page it's on). Tap a tile to choose, anywhere else
+  to stay on the menu.
 - An app that keeps crashing falls back to the menu rather than leaving a dead screen.
 
 ## Setting up a Pi
@@ -78,8 +82,13 @@ only when the network is in range and saved on the Pi - otherwise it stays put.
 1. `apps/<id>/` with the app.
 2. `pi/systemd/pi3-app-<id>.target` (`Wants=` its services, `Conflicts=pi3-launcher.service`)
    and its services (`PartOf=` the target) - copy the Moode Remote ones.
-3. An entry in `launcher/apps.json`, then `python3 launcher/art/make_art.py` (Mac, Pillow).
+3. An entry in `launcher/apps.json`, then `python3 launcher/art/make_art.py` (Mac, Pillow) to
+   redraw the menu pages - add a tile icon for the app id in `make_art.py` (without one it
+   gets its initial).
 4. Give the app a way to create `/run/pi3-touch/request-home`.
+5. pygame apps: start only what you use (`pygame.display.init()` and `pygame.font.init()`,
+   not `pygame.init()`, which also starts audio threads) and redraw only when something on
+   screen changes - a Pi 3 repainting at 30 FPS spends over half a core on it.
 
 ## Hardware notes
 

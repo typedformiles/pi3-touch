@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Pi3 Touch launcher: the boot menu on the HyperPixel.
 
-Shows one card per app (from apps.json). If an app was used last time, counts down and
-starts it again automatically - tap a card to pick one now, or anywhere else to stay on
+Shows the apps (from apps.json) as tiles, a page of cols x rows at a time - swipe sideways
+or tap the dots under them to change page. If an app was used last time, counts down and
+starts it again automatically - tap a tile to pick one now, or anywhere else to stay on
 the menu. Starting an app means starting its systemd target; the launcher then exits
 (the targets conflict with it), and the app's Home control brings it back.
 
@@ -26,6 +27,8 @@ LAST_APP = "/var/lib/pi3-touch/last-app"
 WIFI = os.path.join(HERE, "..", "pi", "bin", "pi3-wifi")
 ART = os.path.join(HERE, "art")
 REDRAW_EVERY = 10
+SWIPE = 0.15                    # sideways travel (fraction of the width) that turns the page
+DOT_HIT = 40                    # px either side of the dots' row that counts as tapping them
 BAR = (126, 12, 247)
 BAR_TRACK = (42, 24, 80)
 
@@ -35,12 +38,35 @@ def load_config():
         return json.load(f)
 
 
-def card_rects(cfg):
-    """Pixel rect (x, y, w, h) of each app card, in apps.json order."""
+def per_page(cfg):
+    return cfg["layout"]["cols"] * cfg["layout"]["rows"]
+
+
+def page_count(cfg):
+    return max(1, -(-len(cfg["apps"]) // per_page(cfg)))
+
+
+def tile_rects(cfg):
+    """(page, x, y, w, h) of each app's tile, in apps.json order: rows filled left to right."""
     L = cfg["layout"]
-    w = pitouch.PW - 2 * L["card_margin"]
-    return [(L["card_margin"], L["card_top"] + i * (L["card_height"] + L["card_gap"]), w, L["card_height"])
-            for i in range(len(cfg["apps"]))]
+    w = (pitouch.PW - 2 * L["margin"] - (L["cols"] - 1) * L["gap"]) // L["cols"]
+    out = []
+    for i in range(len(cfg["apps"])):
+        page, slot = divmod(i, per_page(cfg))
+        row, col = divmod(slot, L["cols"])
+        out.append((page, L["margin"] + col * (w + L["gap"]), L["tile_top"] + row * (L["tile_height"] + L["gap"]),
+                    w, L["tile_height"]))
+    return out
+
+
+def dot_centres(cfg):
+    """Pixel centres of the page dots (none when everything fits on one page)."""
+    n = page_count(cfg)
+    if n < 2:
+        return []
+    step = cfg["layout"]["dot_spacing"]
+    x0 = pitouch.PW // 2 - step * (n - 1) // 2
+    return [(x0 + i * step, cfg["layout"]["dots_y"]) for i in range(n)]
 
 
 def bar_rect(cfg):
@@ -48,13 +74,35 @@ def bar_rect(cfg):
     return 40, L["banner_top"] + 112, pitouch.PW - 80, 12
 
 
-def app_at(cfg, nx, ny):
-    """The app whose card contains the portrait-normalised point, or None."""
+def app_at(cfg, page, nx, ny):
+    """The app whose tile on this page contains the portrait-normalised point, or None."""
     px, py = nx * pitouch.PW, ny * pitouch.PH
-    for app, (x, y, w, h) in zip(cfg["apps"], card_rects(cfg)):
-        if x <= px < x + w and y <= py < y + h:
+    for app, (p, x, y, w, h) in zip(cfg["apps"], tile_rects(cfg)):
+        if p == page and x <= px < x + w and y <= py < y + h:
             return app
     return None
+
+
+def page_of(cfg, app):
+    return cfg["apps"].index(app) // per_page(cfg)
+
+
+def dot_at(cfg, nx, ny):
+    """The page whose dot (generously) contains the point, or None."""
+    px, py = nx * pitouch.PW, ny * pitouch.PH
+    dots = dot_centres(cfg)
+    if not dots or abs(py - dots[0][1]) > DOT_HIT:
+        return None
+    half = cfg["layout"]["dot_spacing"] / 2
+    return next((i for i, (x, _) in enumerate(dots) if abs(px - x) <= half), None)
+
+
+def swipe(nx, ny, sx, sy):
+    """-1 (swiped right: previous page), +1 (swiped left: next page) or 0 for a tap."""
+    dx, dy = (nx - sx) * pitouch.PW, (ny - sy) * pitouch.PH
+    if abs(dx) < SWIPE * pitouch.PW or abs(dx) < abs(dy):
+        return 0
+    return -1 if dx > 0 else 1
 
 
 def read_last(cfg):
@@ -86,9 +134,10 @@ class Launcher:
     def __init__(self, cfg, screen):
         self.cfg, self.screen = cfg, screen
         self.L = cfg["layout"]
+        self.page = 0
 
     def draw_menu(self):
-        self.screen.blit(os.path.join(ART, "menu.rgb.gz"))
+        self.screen.blit(os.path.join(ART, f"menu-{self.page + 1}.rgb.gz"))
 
     def draw_banner(self, app, remaining):
         self.screen.blit(os.path.join(ART, f"banner-{app['id']}.rgb.gz"),
@@ -109,24 +158,37 @@ class Launcher:
         subprocess.run(["systemctl", "start", "--no-block", app["target"]], check=False)
         sys.exit(0)
 
+    def turn_to(self, page):
+        page = max(0, min(page, page_count(self.cfg) - 1))
+        if page != self.page:
+            self.page = page
+            self.draw_menu()
+
     def run(self, touch):
         switch_wifi(self.cfg.get("wifi"))
         countdown_app = read_last(self.cfg)
         deadline = time.time() + self.cfg["countdown"] if countdown_app else None
+        if countdown_app:
+            self.page = page_of(self.cfg, countdown_app)
         self.draw_menu()
         if countdown_app:
             self.draw_banner(countdown_app, self.cfg["countdown"])
         last_draw = last_bar = time.time()
 
         while True:
-            for nx, ny, _ in touch.taps(0.2):
-                app = app_at(self.cfg, nx, ny)
+            for nx, ny, _, sx, sy in touch.touches(0.2):
+                step = swipe(nx, ny, sx, sy)
+                app = None if step else app_at(self.cfg, self.page, sx, sy)
                 if app:
                     self.launch(app)
                 if deadline:
                     pitouch.log("countdown cancelled")
                     deadline = None
                     self.draw_menu()
+                if step:
+                    self.turn_to(self.page + step)
+                elif dot_at(self.cfg, sx, sy) is not None:
+                    self.turn_to(dot_at(self.cfg, sx, sy))
             now = time.time()
             if deadline:
                 if now >= deadline:
