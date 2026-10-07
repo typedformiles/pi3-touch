@@ -8,6 +8,7 @@ counts down and restarts whatever was running last.
 |---|---|
 | [Booth Display](apps/booth-display/) | Slides full screen on an HDMI monitor; the HyperPixel becomes a Previous / Pause / Next remote. |
 | [Moode Remote](apps/moode-remote/) | "Now playing" screen and controls for a [Moode Audio](https://moodeaudio.org/) player on the network. |
+| [Weather](apps/weather/) | Conditions, wind for sailing, 7-day forecast and - at the coast - tides, for a few saved places. |
 
 ## Layout
 
@@ -56,6 +57,7 @@ then prefix any tool with it, e.g. `PI=172.20.10.3 bash mac/deploy.sh`.
 bash mac/status.sh            # what's running, recent logs, power
 bash mac/slides.sh [folder]   # replace the Booth Display slides
 bash mac/add-wifi.sh <SSID>   # save a Wi-Fi network on the Pi
+bash mac/set-tide-key.sh      # save the ADMIRALTY tide API key on the Pi (Weather's tides)
 ```
 
 ## Wi-Fi per app

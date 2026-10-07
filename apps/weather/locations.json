@@ -1,0 +1,8 @@
+{
+  "cycle_seconds": 0,
+  "locations": [
+    {"name": "Maidenhead", "lat": 51.522, "lon": -0.719},
+    {"name": "Hunstanton", "lat": 52.938, "lon": 0.490, "tide_station": "Hunstanton"},
+    {"name": "Herne Bay", "lat": 51.373, "lon": 1.128, "tide_station": "Herne Bay"}
+  ]
+}

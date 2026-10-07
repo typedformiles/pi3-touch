@@ -2,9 +2,9 @@
   "countdown": 10,
   "wifi": "ORBI61",
   "layout": {
-    "card_top": 170,
-    "card_height": 190,
-    "card_gap": 28,
+    "card_top": 160,
+    "card_height": 136,
+    "card_gap": 22,
     "card_margin": 30,
     "banner_top": 640,
     "banner_height": 160
@@ -22,6 +22,12 @@
       "name": "Moode Remote",
       "blurb": "Now playing from moode.local",
       "target": "pi3-app-moode-remote.target"
+    },
+    {
+      "id": "weather",
+      "name": "Weather",
+      "blurb": "Wind, forecast and tides",
+      "target": "pi3-app-weather.target"
     }
   ]
 }

@@ -53,10 +53,12 @@ def menu(cfg):
     for i, app in enumerate(cfg["apps"]):
         x = L["card_margin"]
         y = L["card_top"] + i * (L["card_height"] + L["card_gap"])
-        d.rounded_rectangle([x, y, x + w, y + L["card_height"]], radius=22, fill=CARD, outline=EDGE, width=2)
-        d.rectangle([x + 28, y + 40, x + 34, y + L["card_height"] - 40], fill=VIOLET)    # accent bar
-        d.text((x + 56, y + 52), app["name"], font=font(38), fill=TXT)
-        d.text((x + 58, y + 108), app["blurb"], font=mono(16), fill=LILAC)
+        h = L["card_height"]
+        d.rounded_rectangle([x, y, x + w, y + h], radius=22, fill=CARD, outline=EDGE, width=2)
+        d.rectangle([x + 28, y + h * 0.21, x + 34, y + h * 0.79], fill=VIOLET)    # accent bar
+        top = y + (h - 86) // 2                                                    # name + blurb, centred
+        d.text((x + 56, top), app["name"], font=font(38), fill=TXT)
+        d.text((x + 58, top + 56), app["blurb"], font=mono(16), fill=LILAC)
     return im
 
 
