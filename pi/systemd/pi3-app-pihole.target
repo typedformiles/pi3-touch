@@ -1,0 +1,5 @@
+[Unit]
+Description=Pi3 Touch app: Pi-hole
+Wants=pi3-pihole.service
+Conflicts=pi3-launcher.service
+After=pi3-launcher.service

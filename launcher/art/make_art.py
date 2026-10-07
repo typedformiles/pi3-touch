@@ -102,8 +102,16 @@ def icon_energy(d, s):                      # a green leaf with a lightning bolt
                (s * .7, s * .42), (s * .52, s * .42), (s * .62, s * .14)], fill=(250, 204, 70))
 
 
+def icon_pihole(d, s):                      # a shield with a "no entry" sign
+    d.polygon([(s * .5, s * .08), (s * .84, s * .2), (s * .8, s * .56), (s * .5, s * .92),
+               (s * .2, s * .56), (s * .16, s * .2)], fill=LILAC)
+    c, r = (s * .5, s * .47), s * .2
+    d.ellipse([c[0] - r, c[1] - r, c[0] + r, c[1] + r], fill=(232, 82, 96))
+    d.rounded_rectangle([c[0] - r * .66, c[1] - r * .17, c[0] + r * .66, c[1] + r * .17], radius=s * .02, fill=TXT)
+
+
 ICONS = {"booth-display": icon_booth, "moode-remote": icon_moode, "weather": icon_weather,
-         "world-clock": icon_clock, "energy": icon_energy}
+         "world-clock": icon_clock, "energy": icon_energy, "pihole": icon_pihole}
 
 
 def icon(app, size):

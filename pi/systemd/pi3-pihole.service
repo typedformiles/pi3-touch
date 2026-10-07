@@ -1,0 +1,19 @@
+[Unit]
+Description=Pi-hole: what the network's Pi-hole is blocking, on the HyperPixel
+PartOf=pi3-app-pihole.target
+After=pi3-launcher.service network-online.target
+Wants=network-online.target
+
+# Crash-looping? Give up and fall back to the menu rather than leave a dead screen
+StartLimitIntervalSec=120
+StartLimitBurst=5
+OnFailure=pi3-home.service
+
+[Service]
+User=@USER@
+Environment=SDL_VIDEODRIVER=kmsdrm
+Environment=SDL_KMSDRM_DEVICE_INDEX=0
+# The Pi-hole app password is read from /etc/pi3-touch/pihole-password (mac/set-pihole-key.sh)
+ExecStart=/usr/bin/python3 /opt/pi3-touch/apps/pihole/pihole_display.py
+Restart=always
+RestartSec=5

@@ -11,6 +11,7 @@ counts down and restarts whatever was running last.
 | [Weather](apps/weather/) | Conditions, wind for sailing, 7-day forecast and - at the coast - tides, for a few saved places. |
 | [World Clock](apps/world-clock/) | Six cities as analogue clocks, each face coloured by that city's sky right now. |
 | [Energy & Grid](apps/energy/) | How clean the electricity is now, the generation mix, and the greenest hours of the next two days to plug in. |
+| [Pi-hole](apps/pihole/) | What the network's Pi-hole is blocking - today's numbers, top domains and devices, live lookups - with a button to pause blocking. |
 
 ## Layout
 
@@ -63,6 +64,7 @@ bash mac/status.sh            # what's running, recent logs, power
 bash mac/slides.sh [folder]   # replace the Booth Display slides
 bash mac/add-wifi.sh <SSID>   # save a Wi-Fi network on the Pi
 bash mac/set-tide-key.sh      # save the ADMIRALTY tide API key on the Pi (Weather's tides)
+bash mac/set-pihole-key.sh    # save the Pi-hole's app password on the Pi (the Pi-hole app)
 bash mac/demo-tour.sh [delay] # hands-free ~80 s tour of the apps for filming (taps injected on the Pi)
 ```
 

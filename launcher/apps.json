@@ -47,6 +47,12 @@
       "name": "Energy & Grid",
       "blurb": "When the grid is greenest",
       "target": "pi3-app-energy.target"
+    },
+    {
+      "id": "pihole",
+      "name": "Pi-hole",
+      "blurb": "Ads blocked, pause blocking",
+      "target": "pi3-app-pihole.target"
     }
   ]
 }
