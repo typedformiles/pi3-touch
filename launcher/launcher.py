@@ -2,9 +2,11 @@
 """Pi3 Touch launcher: the boot menu on the HyperPixel.
 
 Shows the apps (from apps.json) as tiles, a page of cols x rows at a time - swipe sideways
-or tap the dots under them to change page. If an app was used last time, counts down and
-starts it again automatically - tap a tile to pick one now, or anywhere else to stay on
-the menu. Starting an app means starting its systemd target; the launcher then exits
+or tap the dots under them to change page, opening on the page of the last app used. Just
+after power-up it also counts down and starts that app again by itself (so a booth display
+recovers from a power cut) - tap a tile to pick one now, or anywhere else to stay on the
+menu. Coming back via an app's Home button never counts down: the menu stays put.
+Starting an app means starting its systemd target; the launcher then exits
 (the targets conflict with it), and the app's Home control brings it back.
 
 Wi-Fi: the menu (and any app without its own "wifi") uses the top-level "wifi" network in
@@ -24,6 +26,7 @@ sys.path.insert(0, os.path.join(HERE, "..", "common"))
 import pitouch  # noqa: E402
 
 LAST_APP = "/var/lib/pi3-touch/last-app"
+BOOTED = "/run/pi3-touch/menu-shown"   # /run empties at boot: absent means we just powered up
 WIFI = os.path.join(HERE, "..", "pi", "bin", "pi3-wifi")
 ART = os.path.join(HERE, "art")
 REDRAW_EVERY = 10
@@ -31,6 +34,8 @@ SWIPE = 0.15                    # sideways travel (fraction of the width) that t
 DOT_HIT = 40                    # px either side of the dots' row that counts as tapping them
 BAR = (126, 12, 247)
 BAR_TRACK = (42, 24, 80)
+HIGHLIGHT = (196, 155, 255)     # a tapped tile's outline (the art's lilac)
+TILE_RADIUS = 22                # the tiles' rounded corners, as make_art.py draws them
 
 
 def load_config():
@@ -105,6 +110,28 @@ def swipe(nx, ny, sx, sy):
     return -1 if dx > 0 else 1
 
 
+def outline_boxes(x, y, w, h, r, t):
+    """Boxes (x, y, w, h) that draw a t px outline of a w x h rectangle with corners of radius r
+    (boxes are all the framebuffer can draw): a row at a time through the corners."""
+    import math
+    ri = r - t                                   # the inside edge's corner radius
+
+    def inset(rad, d):                           # how far a rounded corner cuts into row d
+        return rad - math.sqrt(max(0.0, rad * rad - d * d))
+
+    boxes = []
+    for j in list(range(r)) + list(range(h - r, h)):
+        d = r - 0.5 - (j if j < r else h - 1 - j)          # distance above the corner's centre
+        o = round(inset(r, d))
+        if j < t or j >= h - t:                  # top or bottom band: one solid row
+            boxes.append((x + o, y + j, w - 2 * o, 1))
+            continue
+        i = t + round(inset(ri, d - t)) if d - t > 0 else t
+        boxes += [(x + o, y + j, i - o, 1), (x + w - i, y + j, i - o, 1)]
+    boxes += [(x, y + r, t, h - 2 * r), (x + w - t, y + r, t, h - 2 * r)]
+    return [b for b in boxes if b[2] > 0 and b[3] > 0]
+
+
 def read_last(cfg):
     try:
         with open(LAST_APP) as f:
@@ -112,6 +139,17 @@ def read_last(cfg):
     except OSError:
         return None
     return next((a for a in cfg["apps"] if a["id"] == last), None)
+
+
+def first_since_boot():
+    """True the first time the menu runs after power-up (and remembers that it has)."""
+    if os.path.exists(BOOTED):
+        return False
+    try:
+        open(BOOTED, "w").close()
+    except OSError as e:
+        pitouch.log("can't note the menu has run:", e)
+    return True
 
 
 def write_last(app):
@@ -150,10 +188,19 @@ class Launcher:
         self.screen.fill(x, y, filled, h, BAR)
         self.screen.fill(x + filled, y, w - filled, h, BAR_TRACK)
 
-    def launch(self, app):
+    def highlight(self, app):
+        """Outline a tapped tile - the answer to the tap while the app starts (~2 s on a Pi 3)."""
+        _, x, y, w, h = tile_rects(self.cfg)[self.cfg["apps"].index(app)]
+        for box in outline_boxes(x, y, w, h, TILE_RADIUS, 5):
+            self.screen.fill(*box, HIGHLIGHT)
+
+    def launch(self, app, tapped=False):
         pitouch.log(f"starting {app['name']} ({app['target']})")
         write_last(app)
-        self.draw_banner(app, 0)
+        if tapped:
+            self.highlight(app)
+        else:
+            self.draw_banner(app, 0)
         switch_wifi(app.get("wifi") or self.cfg.get("wifi"))
         subprocess.run(["systemctl", "start", "--no-block", app["target"]], check=False)
         sys.exit(0)
@@ -166,10 +213,11 @@ class Launcher:
 
     def run(self, touch):
         switch_wifi(self.cfg.get("wifi"))
-        countdown_app = read_last(self.cfg)
+        last = read_last(self.cfg)
+        countdown_app = last if first_since_boot() else None
         deadline = time.time() + self.cfg["countdown"] if countdown_app else None
-        if countdown_app:
-            self.page = page_of(self.cfg, countdown_app)
+        if last:
+            self.page = page_of(self.cfg, last)
         self.draw_menu()
         if countdown_app:
             self.draw_banner(countdown_app, self.cfg["countdown"])
@@ -180,7 +228,7 @@ class Launcher:
                 step = swipe(nx, ny, sx, sy)
                 app = None if step else app_at(self.cfg, self.page, sx, sy)
                 if app:
-                    self.launch(app)
+                    self.launch(app, tapped=True)
                 if deadline:
                     pitouch.log("countdown cancelled")
                     deadline = None

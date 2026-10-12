@@ -173,13 +173,27 @@ def convert(rgb, bpp):
         out[3::4] = b"\xff" * n
         return bytes(out)
     if bpp == 16:
+        # RGB565, low byte first: low = ggg bbbbb, high = rrrrr ggg. Each byte mixes two
+        # channels, so build each half per channel with translate() and OR the halves together
+        # as big integers - whole-buffer operations in C, not a loop per pixel (a full screen
+        # took 4.4 s on a Pi 3 that way, ~0.1 s like this).
+        r, g, b = rgb[0::3], rgb[1::3], rgb[2::3]
         out = bytearray(n * 2)
-        for i in range(n):
-            r, g, b = rgb[3 * i], rgb[3 * i + 1], rgb[3 * i + 2]
-            v = ((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3)
-            out[2 * i], out[2 * i + 1] = v & 0xFF, v >> 8
+        out[0::2] = _or(g.translate(_G_LO), b.translate(_B_LO))
+        out[1::2] = _or(r.translate(_R_HI), g.translate(_G_HI))
         return bytes(out)
     raise ValueError(f"unsupported framebuffer depth {bpp}")
+
+
+_G_LO = bytes((g >> 2 & 7) << 5 for g in range(256))
+_B_LO = bytes(b >> 3 for b in range(256))
+_R_HI = bytes(r >> 3 << 3 for r in range(256))
+_G_HI = bytes(g >> 5 for g in range(256))
+
+
+def _or(a, b):
+    """Bitwise OR of two equal-length byte strings."""
+    return (int.from_bytes(a, "big") | int.from_bytes(b, "big")).to_bytes(len(a), "big")
 
 
 def load_rgb(path):

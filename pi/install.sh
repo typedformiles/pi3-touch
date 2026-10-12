@@ -93,6 +93,6 @@ if [ $REBOOT = 1 ]; then
   sync; systemd-run --on-active=5 --unit=pi3-touch-reboot /usr/bin/systemctl reboot
 else
   systemctl restart pi3-launcher.service
-  echo "launcher restarted (countdown to: $(cat /var/lib/pi3-touch/last-app 2>/dev/null || echo none))"
+  echo "launcher restarted (last app: $(cat /var/lib/pi3-touch/last-app 2>/dev/null || echo none) - it only counts down to it after power-up)"
 fi
 echo "INSTALL OK"

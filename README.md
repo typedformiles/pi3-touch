@@ -2,7 +2,7 @@
 
 A Raspberry Pi 3 with a Pimoroni HyperPixel 4.0 touch screen that boots into a menu of
 apps. Pick one and it runs; each app has a way back to the menu. After a power cut it
-counts down and restarts whatever was running last.
+counts down and restarts whatever was running last; otherwise the menu waits for a tap.
 
 | App | What it does |
 |---|---|
@@ -36,9 +36,11 @@ tests/          off-Pi tests (python3 -m unittest discover tests; lua tests/test
   the framebuffer (`/dev/fb0`) instead of through a graphics library.
 - An app asks for the menu by creating `/run/pi3-touch/request-home`;
   `pi3-home.path` notices and starts the launcher.
-- The last app is remembered in `/var/lib/pi3-touch/last-app`; the menu counts down
-  10 s and starts it again (showing the page it's on). Tap a tile to choose, anywhere else
-  to stay on the menu.
+- The last app is remembered in `/var/lib/pi3-touch/last-app`, and the menu opens on its
+  page. Just after power-up the menu also counts down 10 s and starts it again (so a booth
+  display recovers from a power cut by itself); tap a tile to choose, anywhere else to stay
+  on the menu. Coming back via an app's Home button there's no countdown. The menu notes
+  that it has run in `/run/pi3-touch/menu-shown`, which disappears at every boot.
 - An app that keeps crashing falls back to the menu rather than leaving a dead screen.
 
 ## Setting up a Pi

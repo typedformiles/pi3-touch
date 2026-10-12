@@ -62,6 +62,11 @@ class TestPitouch(unittest.TestCase):
         self.assertEqual(pitouch.convert(bytes([10, 20, 30]), 32), bytes([30, 20, 10, 255]))
         self.assertEqual(pitouch.convert(bytes([255, 0, 0]), 16), bytes([0x00, 0xF8]))
         self.assertEqual(pitouch.convert(bytes([0, 0, 255]), 16), bytes([0x1F, 0x00]))
+        # every value of every channel, against RGB565 worked out a pixel at a time
+        rgb = bytes(v for i in range(256) for v in (i, 255 - i, (i * 7) % 256))
+        want = b"".join((((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3)).to_bytes(2, "little")
+                        for r, g, b in zip(rgb[0::3], rgb[1::3], rgb[2::3]))
+        self.assertEqual(pitouch.convert(rgb, 16), want)
 
     def test_blit_and_fill_16bpp_wide_framebuffer(self):
         fake = FakeFramebuffer(bpp=16)
@@ -259,6 +264,7 @@ class TestLauncher(unittest.TestCase):
         self.commands = []
         self.patches = [
             mock.patch.object(launcher, "LAST_APP", self.dir + "/last-app"),
+            mock.patch.object(launcher, "BOOTED", self.dir + "/menu-shown"),
             mock.patch.object(launcher.subprocess, "run", lambda cmd, check: self.commands.append(cmd)),
         ]
         for p in self.patches:
@@ -379,6 +385,41 @@ class TestLauncher(unittest.TestCase):
             f.write("booth-display")
         self.assertFalse(self.run_launcher([(0.1, 0.5, 0.05)], max_s=1.5), "should stay on the menu")
         self.assertEqual(self.started, [])
+
+    def test_countdown_only_after_power_up(self):
+        self.more_apps(4)
+        with open(self.dir + "/last-app", "w") as f:
+            f.write("extra-2")
+        self.assertFalse(self.run_launcher([(0.05, 0.5, 0.05)], max_s=1.0), "first run: countdown, tap stays")
+        self.assertFalse(self.run_launcher([], max_s=1.5), "back via Home: no countdown, stays on the menu")
+        self.assertEqual(self.started, [])
+        self.assertEqual(self.launcher.page, 1, "still opens on the last app's page")
+
+    def test_tapped_tile_is_outlined_not_bannered(self):
+        drawn = []
+        p = mock.patch.object(launcher.Launcher, "draw_banner", lambda self, *a: drawn.append("banner"))
+        p.start()
+        self.patches.append(p)
+        nx, ny = self.card_centre(2)
+        self.assertTrue(self.run_launcher([(0.1, nx, ny)]))
+        self.assertEqual(drawn, [], "no countdown-style banner for a tap")
+        _, x, y, w, h = launcher.tile_rects(self.cfg)[2]
+        self.assertEqual(self.fake.pixel(*pitouch.Screen.place(x + w // 2, y + 1, 1, 1)),
+                         pitouch.convert(bytes(launcher.HIGHLIGHT), 16), "top edge outlined")
+
+    def test_outline_boxes_stay_inside_and_mirror(self):
+        boxes = launcher.outline_boxes(10, 20, 200, 100, 22, 5)
+        for bx, by, bw, bh in boxes:
+            self.assertTrue(10 <= bx and bx + bw <= 210 and 20 <= by and by + bh <= 120, (bx, by, bw, bh))
+        rows = {}
+        for bx, by, bw, bh in boxes:
+            for yy in range(by, by + bh):
+                rows.setdefault(yy, set()).update(range(bx, bx + bw))
+        self.assertEqual(rows[20], set(range(10 + 17, 210 - 17)), "top row starts after the rounded corner")
+        self.assertEqual(rows[70], set(range(10, 15)) | set(range(205, 210)), "middle rows: the two sides")
+        for yy, xs in rows.items():
+            self.assertEqual(xs, {219 - x for x in xs}, f"row {yy} symmetric")
+            self.assertEqual(xs, rows[139 - yy], f"row {yy} matches its mirror row")
 
     def test_no_last_app_no_countdown(self):
         self.assertFalse(self.run_launcher([], max_s=1.0))
