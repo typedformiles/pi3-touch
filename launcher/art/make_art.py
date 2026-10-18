@@ -148,9 +148,17 @@ def icon_planes(d, s):                      # an airliner climbing out over two 
               fill=blue)
 
 
+def icon_trivia(d, s):                      # a gold speech bubble with a question mark
+    gold = (255, 196, 60)
+    d.rounded_rectangle([s * .1, s * .12, s * .9, s * .7], radius=s * .16, fill=gold)
+    d.polygon([(s * .3, s * .66), (s * .26, s * .9), (s * .5, s * .68)], fill=gold)
+    f = font(round(s * .5))
+    d.text((s * .5 - d.textlength("?", font=f) / 2, s * .08), "?", font=f, fill=(30, 22, 6))
+
+
 ICONS = {"booth-display": icon_booth, "moode-remote": icon_moode, "weather": icon_weather,
          "world-clock": icon_clock, "energy": icon_energy, "pihole": icon_pihole, "fpl": icon_fpl,
-         "departures": icon_departures, "planes": icon_planes}
+         "departures": icon_departures, "planes": icon_planes, "trivia": icon_trivia}
 
 
 def icon(app, size):

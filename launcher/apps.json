@@ -71,6 +71,12 @@
       "name": "Planes Overhead",
       "blurb": "What's flying over, and where to",
       "target": "pi3-app-planes.target"
+    },
+    {
+      "id": "trivia",
+      "name": "Trivia",
+      "blurb": "Quiz rounds, 24 topics",
+      "target": "pi3-app-trivia.target"
     }
   ]
 }

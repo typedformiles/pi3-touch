@@ -15,6 +15,7 @@ counts down and restarts whatever was running last; otherwise the menu waits for
 | [FPL Live](apps/fpl/) | A Fantasy Premier League team's points as the games go on, its mini-league tables, and the next deadline with injury news and fixtures. |
 | [Departures](apps/departures/) | Live Elizabeth line trains from Taplow both ways, and westbound from Paddington with each train's time home. |
 | [Planes Overhead](apps/planes/) | The aircraft around home on a radar-style map, with each one's route, type, height and photo. |
+| [Trivia](apps/trivia/) | Quiz rounds of ten questions in 24 topics, from the Open Trivia Database. |
 
 ## Layout
 
