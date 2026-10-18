@@ -12,6 +12,7 @@ counts down and restarts whatever was running last; otherwise the menu waits for
 | [World Clock](apps/world-clock/) | Six cities as analogue clocks, each face coloured by that city's sky right now. |
 | [Energy & Grid](apps/energy/) | How clean the electricity is now, the generation mix, and the greenest hours of the next two days to plug in. |
 | [Pi-hole](apps/pihole/) | What the network's Pi-hole is blocking - today's numbers, top domains and devices, live lookups - with a button to pause blocking. |
+| [FPL Live](apps/fpl/) | A Fantasy Premier League team's points as the games go on, its mini-league tables, and the next deadline with injury news and fixtures. |
 
 ## Layout
 

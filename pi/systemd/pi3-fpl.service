@@ -1,0 +1,20 @@
+[Unit]
+Description=FPL Live: a Fantasy Premier League team's live points on the HyperPixel
+PartOf=pi3-app-fpl.target
+After=pi3-launcher.service network-online.target
+Wants=network-online.target
+
+# Crash-looping? Give up and fall back to the menu rather than leave a dead screen
+StartLimitIntervalSec=120
+StartLimitBurst=5
+OnFailure=pi3-home.service
+
+[Service]
+User=@USER@
+Environment=SDL_VIDEODRIVER=kmsdrm
+Environment=SDL_KMSDRM_DEVICE_INDEX=0
+# Cached FPL data (owned by @USER@), so the screen works offline
+StateDirectory=pi3-touch-fpl
+ExecStart=/usr/bin/python3 /opt/pi3-touch/apps/fpl/fpl_display.py
+Restart=always
+RestartSec=5

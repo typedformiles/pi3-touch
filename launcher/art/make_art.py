@@ -110,8 +110,20 @@ def icon_pihole(d, s):                      # a shield with a "no entry" sign
     d.rounded_rectangle([c[0] - r * .66, c[1] - r * .17, c[0] + r * .66, c[1] + r * .17], radius=s * .02, fill=TXT)
 
 
+def icon_fpl(d, s):                         # an FPL-green shirt with a number, and a "live" dot
+    green = (0, 255, 135)
+    d.polygon([(s * .08, s * .32), (s * .3, s * .14), (s * .34, s * .44), (s * .16, s * .52)], fill=green)
+    d.polygon([(s * .92, s * .32), (s * .7, s * .14), (s * .66, s * .44), (s * .84, s * .52)], fill=green)
+    d.polygon([(s * .3, s * .14), (s * .41, s * .12), (s * .5, s * .2), (s * .59, s * .12), (s * .7, s * .14),
+               (s * .7, s * .88), (s * .3, s * .88)], fill=green)
+    d.polygon([(s * .41, s * .12), (s * .5, s * .2), (s * .59, s * .12), (s * .5, s * .27)], fill=(55, 0, 60))
+    f = font(round(s * .36))
+    d.text((s * .5 - d.textlength("7", font=f) / 2, s * .32), "7", font=f, fill=(55, 0, 60))
+    d.ellipse([s * .78, s * .66, s * .96, s * .84], fill=(232, 82, 96), outline=CARD, width=round(s * .03))
+
+
 ICONS = {"booth-display": icon_booth, "moode-remote": icon_moode, "weather": icon_weather,
-         "world-clock": icon_clock, "energy": icon_energy, "pihole": icon_pihole}
+         "world-clock": icon_clock, "energy": icon_energy, "pihole": icon_pihole, "fpl": icon_fpl}
 
 
 def icon(app, size):

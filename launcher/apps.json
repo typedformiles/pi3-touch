@@ -53,6 +53,12 @@
       "name": "Pi-hole",
       "blurb": "Ads blocked, pause blocking",
       "target": "pi3-app-pihole.target"
+    },
+    {
+      "id": "fpl",
+      "name": "FPL Live",
+      "blurb": "Live points and mini-leagues",
+      "target": "pi3-app-fpl.target"
     }
   ]
 }
