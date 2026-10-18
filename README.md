@@ -16,6 +16,7 @@ counts down and restarts whatever was running last; otherwise the menu waits for
 | [Departures](apps/departures/) | Live Elizabeth line trains from Taplow both ways, and westbound from Paddington with each train's time home. |
 | [Planes Overhead](apps/planes/) | The aircraft around home on a radar-style map, with each one's route, type, height and photo. |
 | [Trivia](apps/trivia/) | Quiz rounds of ten questions in 24 topics, from the Open Trivia Database. |
+| [Word of the Day](apps/wotd/) | Merriam-Webster's word of the day: meaning, examples, where it comes from, and the words before it. |
 
 ## Layout
 

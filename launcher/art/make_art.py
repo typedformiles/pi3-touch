@@ -156,9 +156,22 @@ def icon_trivia(d, s):                      # a gold speech bubble with a questi
     d.text((s * .5 - d.textlength("?", font=f) / 2, s * .08), "?", font=f, fill=(30, 22, 6))
 
 
+def icon_wotd(d, s):                        # an open dictionary with a violet ribbon
+    paper, ink = (250, 244, 232), (150, 140, 170)
+    d.polygon([(s * .5, s * .26), (s * .5, s * .84), (s * .1, s * .78), (s * .1, s * .2)], fill=paper)
+    d.polygon([(s * .5, s * .26), (s * .5, s * .84), (s * .9, s * .78), (s * .9, s * .2)], fill=paper)
+    d.line([(s * .5, s * .26), (s * .5, s * .84)], fill=ink, width=round(s * .02))
+    for k in range(5):                      # lines of text on each page
+        y = s * (.34 + k * .09)
+        d.line([(s * .17, y), (s * .43, y + s * .015)], fill=ink, width=round(s * .025))
+        d.line([(s * .57, y + s * .015), (s * .83 - (s * .1 if k == 4 else 0), y)], fill=ink, width=round(s * .025))
+    d.polygon([(s * .64, s * .16), (s * .74, s * .16), (s * .74, s * .5), (s * .69, s * .44), (s * .64, s * .5)],
+              fill=LILAC)
+
+
 ICONS = {"booth-display": icon_booth, "moode-remote": icon_moode, "weather": icon_weather,
          "world-clock": icon_clock, "energy": icon_energy, "pihole": icon_pihole, "fpl": icon_fpl,
-         "departures": icon_departures, "planes": icon_planes, "trivia": icon_trivia}
+         "departures": icon_departures, "planes": icon_planes, "trivia": icon_trivia, "wotd": icon_wotd}
 
 
 def icon(app, size):

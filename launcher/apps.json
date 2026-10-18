@@ -77,6 +77,12 @@
       "name": "Trivia",
       "blurb": "Quiz rounds, 24 topics",
       "target": "pi3-app-trivia.target"
+    },
+    {
+      "id": "wotd",
+      "name": "Word of the Day",
+      "blurb": "A new word every morning",
+      "target": "pi3-app-wotd.target"
     }
   ]
 }
