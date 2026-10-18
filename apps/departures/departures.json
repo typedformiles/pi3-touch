@@ -1,0 +1,11 @@
+{
+  "line": "elizabeth",
+  "stations": [
+    {"name": "Taplow", "stop": "910GTAPLOW", "sections": [
+      {"title": "To London", "direction": "inbound"},
+      {"title": "To Reading", "direction": "outbound"}
+    ]},
+    {"name": "Paddington", "stop": "910GPADTLL", "direction": "outbound",
+     "to": {"name": "Taplow", "via": ["Maidenhead", "Twyford", "Reading"], "minutes": 35}}
+  ]
+}

@@ -59,6 +59,12 @@
       "name": "FPL Live",
       "blurb": "Live points and mini-leagues",
       "target": "pi3-app-fpl.target"
+    },
+    {
+      "id": "departures",
+      "name": "Departures",
+      "blurb": "Trains from Taplow and home",
+      "target": "pi3-app-departures.target"
     }
   ]
 }

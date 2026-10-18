@@ -122,8 +122,20 @@ def icon_fpl(d, s):                         # an FPL-green shirt with a number, 
     d.ellipse([s * .78, s * .66, s * .96, s * .84], fill=(232, 82, 96), outline=CARD, width=round(s * .03))
 
 
+def icon_departures(d, s):                  # the front of a purple train on its rails
+    purple, glass = (105, 80, 161), (196, 220, 250)
+    d.rounded_rectangle([s * .24, s * .1, s * .76, s * .74], radius=s * .12, fill=purple)
+    d.rounded_rectangle([s * .31, s * .2, s * .69, s * .44], radius=s * .05, fill=glass)
+    for x in (.35, .65):
+        d.ellipse([s * (x - .05), s * .55, s * (x + .05), s * .65], fill=(250, 220, 120))
+    d.line([(s * .34, s * .74), (s * .22, s * .92)], fill=TXT, width=round(s * .04))
+    d.line([(s * .66, s * .74), (s * .78, s * .92)], fill=TXT, width=round(s * .04))
+    d.line([(s * .29, s * .83), (s * .71, s * .83)], fill=TXT, width=round(s * .03))
+
+
 ICONS = {"booth-display": icon_booth, "moode-remote": icon_moode, "weather": icon_weather,
-         "world-clock": icon_clock, "energy": icon_energy, "pihole": icon_pihole, "fpl": icon_fpl}
+         "world-clock": icon_clock, "energy": icon_energy, "pihole": icon_pihole, "fpl": icon_fpl,
+         "departures": icon_departures}
 
 
 def icon(app, size):
