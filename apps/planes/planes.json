@@ -1,0 +1,19 @@
+{
+  "home": {"name": "Taplow", "lat": 51.5235, "lon": -0.6812},
+  "ranges_nm": [5, 10, 20],
+  "range_nm": 10,
+  "show_ground": false,
+  "landmarks": [
+    {"name": "Maidenhead", "lat": 51.5225, "lon": -0.7190},
+    {"name": "Windsor", "lat": 51.4839, "lon": -0.6044},
+    {"name": "Slough", "lat": 51.5105, "lon": -0.5950},
+    {"name": "Marlow", "lat": 51.5707, "lon": -0.7768},
+    {"name": "High Wycombe", "lat": 51.6287, "lon": -0.7482},
+    {"name": "Bracknell", "lat": 51.4163, "lon": -0.7516},
+    {"name": "Reading", "lat": 51.4543, "lon": -0.9781}
+  ],
+  "runways": [
+    {"name": "Heathrow", "ends": [[51.4775, -0.4895], [51.4776, -0.4330]], "label": [51.4600, -0.4600]},
+    {"name": "", "ends": [[51.4648, -0.4833], [51.4647, -0.4337]]}
+  ]
+}

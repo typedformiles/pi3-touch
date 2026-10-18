@@ -133,9 +133,24 @@ def icon_departures(d, s):                  # the front of a purple train on its
     d.line([(s * .29, s * .83), (s * .71, s * .83)], fill=TXT, width=round(s * .03))
 
 
+def icon_planes(d, s):                      # an airliner climbing out over two radar rings
+    blue = (90, 180, 240)
+    for r in (.42, .26):
+        d.ellipse([s * (.5 - r), s * (.5 - r), s * (.5 + r), s * (.5 + r)], outline=EDGE, width=round(s * .025))
+    c, a = (s * .5, s * .5), math.radians(45)              # pointing north-east
+    fwd, side = (math.sin(a), -math.cos(a)), (math.cos(a), math.sin(a))
+
+    def pt(f, w):
+        return (c[0] + (fwd[0] * f + side[0] * w) * s, c[1] + (fwd[1] * f + side[1] * w) * s)
+    d.polygon([pt(.34, 0), pt(.25, .045), pt(.06, .05), pt(-.05, .32), pt(-.11, .32), pt(-.08, .05),
+               pt(-.24, .04), pt(-.32, .14), pt(-.36, .14), pt(-.33, 0), pt(-.36, -.14), pt(-.32, -.14),
+               pt(-.24, -.04), pt(-.08, -.05), pt(-.11, -.32), pt(-.05, -.32), pt(.06, -.05), pt(.25, -.045)],
+              fill=blue)
+
+
 ICONS = {"booth-display": icon_booth, "moode-remote": icon_moode, "weather": icon_weather,
          "world-clock": icon_clock, "energy": icon_energy, "pihole": icon_pihole, "fpl": icon_fpl,
-         "departures": icon_departures}
+         "departures": icon_departures, "planes": icon_planes}
 
 
 def icon(app, size):

@@ -65,6 +65,12 @@
       "name": "Departures",
       "blurb": "Trains from Taplow and home",
       "target": "pi3-app-departures.target"
+    },
+    {
+      "id": "planes",
+      "name": "Planes Overhead",
+      "blurb": "What's flying over, and where to",
+      "target": "pi3-app-planes.target"
     }
   ]
 }

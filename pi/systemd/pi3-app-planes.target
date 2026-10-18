@@ -1,0 +1,5 @@
+[Unit]
+Description=Pi3 Touch app: Planes Overhead
+Wants=pi3-planes.service
+Conflicts=pi3-launcher.service
+After=pi3-launcher.service
