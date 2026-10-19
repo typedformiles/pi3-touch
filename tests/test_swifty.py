@@ -1,5 +1,5 @@
-"""Off-Pi tests for the Swifty app: the song list, Swiftle's rules, streaks and memory
-(and its screens, when pygame is installed).
+"""Off-Pi tests for the Swifty app: the song list, Swiftle's rules, streaks and memory,
+Song Showdown's ratings and pairs (and the screens, when pygame is installed).
 
 Run on a Mac/PC:  python3 -m unittest discover tests
 """
@@ -158,11 +158,81 @@ class TestStore(unittest.TestCase):
         self.assertEqual(again.stats(TODAY)["played"], 0, "practice doesn't count")
 
 
+class TestShowdown(unittest.TestCase):
+    def setUp(self):
+        self.dir = tempfile.mkdtemp()
+        self.store = self.make()
+
+    def make(self):
+        return sd.ShowdownStore(ALBUMS, SONGS, sd.Saves(self.dir), rng=random.Random(2))
+
+    def test_a_pick_moves_points_from_loser_to_winner(self):
+        a, b = self.store.pair()
+        self.store.pick(b["title"])
+        rb, ra = self.store.rec(b["title"]), self.store.rec(a["title"])
+        self.assertEqual((rb, ra), ([sd.START + sd.K / 2, 1, 1], [sd.START - sd.K / 2, 1, 0]))
+        self.assertEqual(self.store.battles, 1)
+        self.assertNotEqual({s["title"] for s in self.store.pair()}, {a["title"], b["title"]}, "a new pair")
+
+    def test_beating_a_stronger_song_is_worth_more(self):
+        self.store.mem["songs"] = {"Style": [1200, 5, 5], "Karma": [1000, 5, 1]}
+        self.store.mem["pair"] = ["Style", "Karma"]
+        self.store.pick("Karma")
+        self.assertGreater(self.store.rec("Karma")[0] - 1000, sd.K * 0.7)
+
+    def test_the_pair_waits_on_disk_until_picked(self):
+        pair = self.store.pair()
+        self.assertEqual(self.make().pair(), pair)
+        self.assertIsNone(self.store.pick("Not in the pair"))
+
+    def test_every_song_battles_before_any_battles_twice(self):
+        for _ in range(len(SONGS) // 2):
+            a, b = self.store.pair()
+            self.store.pick(a["title"])
+        self.assertEqual({self.store.rec(s["title"])[1] for s in SONGS}, {1})
+
+    def test_undo_puts_everything_back(self):
+        a, b = self.store.pair()
+        self.store.pick(a["title"])
+        before = (self.store.rec(a["title"]), self.store.battles)
+        c, d = self.store.pair()
+        self.store.pick(d["title"])
+        self.assertTrue(self.store.undo())
+        self.assertEqual([s["title"] for s in self.store.pair()], [c["title"], d["title"]])
+        self.assertEqual((self.store.rec(a["title"]), self.store.battles), before)
+        self.assertEqual(self.store.rec(d["title"])[1], 1 if d["title"] in (a["title"], b["title"]) else 0)
+        self.assertFalse(self.store.undo(), "one step only")
+
+    def test_skip_scores_nothing_and_cant_be_undone(self):
+        a, b = self.store.pair()
+        self.store.skip()
+        self.assertEqual((self.store.battles, self.store.rec(a["title"])[1]), (0, 0))
+        self.assertFalse(self.store.can_undo())
+
+    def test_an_era_only(self):
+        self.store.set_era("evermore")
+        for _ in range(10):
+            pair = self.store.pair()
+            self.assertEqual({s["album"] for s in pair}, {"evermore"})
+            self.store.pick(pair[0]["title"])
+
+    def test_rankings_of_songs_and_eras(self):
+        self.store.mem["songs"] = {"cardigan": [1100, 4, 4], "willow": [1050, 3, 2], "Karma": [900, 3, 0],
+                                   "betty": [1000, 2, 1]}
+        self.assertEqual([r[0]["title"] for r in self.store.ranking()], ["cardigan", "willow", "betty", "Karma"])
+        eras = self.store.eras()
+        self.assertEqual([(e[0]["title"], e[2], e[3]["title"]) for e in eras[:3]],
+                         [("folklore", 2, "cardigan"), ("evermore", 1, "willow"), ("Midnights", 1, "Karma")])
+        self.assertTrue(all(e[1] is None for e in eras[3:]))
+        self.assertEqual(len(eras), len(ALBUMS))
+
+
 try:
     os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
     import pygame  # noqa: F401
     import swifty_display
     import swiftle_screen
+    import showdown_screen
 except ImportError:
     swifty_display = None
 
@@ -190,12 +260,14 @@ class TestScreens(unittest.TestCase):
             self.assertGreaterEqual(size, 30, s["title"])
 
     def test_text_reads_on_every_era_colour(self):
-        """Pills, keys and buttons in the era's colour, and the found-letter tiles."""
+        """Pills, keys and buttons in the era's colour, the found-letter tiles, and the colour
+        clue's swatch."""
         import swifty_ui as ui
         for a in ALBUMS:
             c = a["colour"]
             tile = ui.mix(c, ui.mix(ui.BG, c, 0.16), 0.45)
             self.assertGreaterEqual(ui.contrast(c, ui.ink_on(c)), 4, a["title"])
+            self.assertGreaterEqual(ui.contrast(a["swatch"], ui.ink_on(a["swatch"])), 4, a["title"])
             self.assertGreaterEqual(ui.contrast(tile, ui.ink_on(tile)), 4, a["title"])
 
     def test_playing_today_by_tapping_keys(self):
@@ -233,6 +305,42 @@ class TestScreens(unittest.TestCase):
                     self.tap(f"view:{view}")
                     self.app.draw(self.now)
         self.assertEqual(self.saves.section("app")["game"], "Showdown")
+
+    def test_showdown_pick_glows_then_moves_on(self):
+        self.tap("game:Showdown")
+        sc = self.app.games["Showdown"]
+        first = self.app.showdown.pair()
+        self.tap("pick:1")
+        self.assertEqual(self.app.showdown.rec(first[1]["title"])[2], 1)
+        self.app.draw(self.now)
+        self.assertNotIn("pick:0", self.app.ui.buttons, "no picking while the winner glows")
+        sc.flash = (sc.flash[0], sc.flash[1], 0)
+        self.assertTrue(self.app.frame(self.now))
+        self.assertIsNone(sc.flash)
+        self.assertIn("pick:0", self.app.ui.buttons)
+        self.tap("undo")
+        self.assertEqual(self.app.showdown.battles, 0)
+        self.tap("eras")
+        self.tap("era:Red")
+        self.assertEqual({s["album"] for s in self.app.showdown.pair()}, {"Red"})
+
+    def test_showdown_views_draw_empty_and_full(self):
+        self.tap("game:Showdown")
+        for view in showdown_screen.VIEWS:
+            self.tap(f"view:{view}")
+        st = self.app.showdown
+        for _ in range(300):
+            st.pick(st.pair()[0]["title"])
+        for view in showdown_screen.VIEWS:
+            self.tap(f"view:{view}")
+        self.tap("view:Top songs")
+        for _ in range(20):
+            self.app.draw(self.now)
+            if "lower" not in self.app.ui.buttons:
+                break
+            self.tap("lower")
+        self.assertIn("higher", self.app.ui.buttons, "pages end at the last song")
+        self.tap("higher")
 
     def test_redraws_only_when_something_changes(self):
         self.assertTrue(self.app.frame(self.now))

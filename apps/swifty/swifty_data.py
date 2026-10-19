@@ -10,8 +10,11 @@ song on the same day, and none repeats until every song has had its day. Six wro
 letters lose it; clues come as the misses go up. Practice games are unlimited and don't
 count towards the streak.
 
-Progress (today's guesses, practice, results) is kept in swifty.json in the state folder,
-so leaving the app and coming back carries on where it was.
+Song Showdown puts two songs up at a time: pick the one you love more, and over many
+battles the ratings (Elo, as in chess) rank every song, and every era.
+
+Progress (today's guesses, practice, results, the showdown ratings) is kept in
+swifty.json in the state folder, so leaving the app and coming back carries on where it was.
 
 Check the song list with:
     python3 /opt/pi3-touch/apps/swifty/swifty_data.py --check
@@ -41,7 +44,9 @@ def log(*a):
 
 def load_catalogue(path=SONGS):
     """songs.json -> (albums, songs). Each song: {"title", "album", "short", "track", "year",
-    "colour", "colour_name"}; songs without enough letters to guess are left out."""
+    "colour", "colour_name", "swatch"}; songs without enough letters to guess are left out.
+    colour is the app's colour for the era; swatch is the era's colour as fans know it (the
+    same, unless that's too dark or light to draw keys and buttons in - black for reputation)."""
     with open(path) as f:
         data = json.load(f)
     skip = set(data.get("skip", []))
@@ -49,13 +54,13 @@ def load_catalogue(path=SONGS):
     for a in data["albums"]:
         album = {"title": a["title"], "short": a.get("short", a["title"]), "year": a["year"],
                  "colour": tuple(a["colour"]),
-                 "colour_name": a.get("colour_name", "")}
+                 "colour_name": a.get("colour_name", ""), "swatch": tuple(a.get("swatch", a["colour"]))}
         albums.append(album)
         for n, title in enumerate(a["tracks"], 1):
             if title not in skip and len(letters(title)) >= 2:
                 songs.append({"title": title, "album": album["title"], "short": album["short"], "track": n,
                               "year": album["year"], "colour": album["colour"],
-                              "colour_name": album["colour_name"]})
+                              "colour_name": album["colour_name"], "swatch": album["swatch"]})
     return albums, songs
 
 
@@ -241,6 +246,132 @@ class SwiftleStore:
         recent = [(d, *res[d]) for d in sorted(res, reverse=True)]
         return {"played": len(res), "won": len(won), "streak": streak, "best": best, "dist": dist,
                 "recent": recent}
+
+
+# ── Song Showdown ─────────────────────────────────────────────────────────────
+
+START, K = 1000, 32                     # Elo: every song starts level; K is how far one battle moves it
+RECENT_PAIRS = 40                       # pairs not to see again soon
+CLOSE = 8                               # a rival comes from the songs rated nearest
+
+
+class ShowdownStore:
+    """Two songs at a time: the one picked takes rating points from the other (Elo, as in
+    chess), so over many battles the ratings rank every song. Every song battles once before
+    any battles twice (and so on), each against a rival rated near it."""
+
+    def __init__(self, albums, songs, saves, rng=random):
+        self.albums, self.songs, self.saves, self.rng = albums, songs, saves, rng
+        self.by_title = {s["title"]: s for s in songs}
+        self.mem = saves.section("showdown")
+        self.mem.setdefault("songs", {})        # title -> [rating, battles, wins]
+        self.mem.setdefault("battles", 0)
+
+    def rec(self, title):
+        return self.mem["songs"].get(title, [START, 0, 0])
+
+    @property
+    def era(self):
+        return self.mem.get("era")
+
+    @property
+    def battles(self):
+        return self.mem["battles"]
+
+    def set_era(self, era):
+        self.mem["era"] = era
+        self.mem["pair"] = None
+        self.pair()
+
+    def pair(self):
+        """The two songs on screen, chosen once and kept (on disk) until one is picked."""
+        p = self.mem.get("pair")
+        if not p or any(t not in self.by_title for t in p):
+            p = self.mem["pair"] = self._choose()
+            self.saves.save()
+        return [self.by_title[t] for t in p]
+
+    def _choose(self):
+        pool = [s for s in self.songs if self.era is None or s["album"] == self.era]
+        if len(pool) < 2:
+            pool = self.songs
+        least = min(self.rec(s["title"])[1] for s in pool)
+        fresh = [s for s in pool if self.rec(s["title"])[1] == least]    # the songs seen least
+        a = self.rng.choice(fresh)
+        recent = {frozenset(x) for x in self.mem.get("recent", [])}
+
+        def rivals(group):
+            return [s for s in group if s is not a and frozenset((a["title"], s["title"])) not in recent]
+        others = rivals(fresh) or rivals([s for s in pool if self.rec(s["title"])[1] == least + 1]) or \
+            rivals(pool) or [s for s in pool if s is not a]
+        self.rng.shuffle(others)                 # so equal ratings don't favour the first album
+        ra = self.rec(a["title"])[0]
+        others.sort(key=lambda s: abs(self.rec(s["title"])[0] - ra))
+        b = self.rng.choice(others[:CLOSE])
+        pair = [a["title"], b["title"]]
+        self.rng.shuffle(pair)
+        return pair
+
+    def _next(self):
+        self.mem["recent"] = (self.mem.get("recent", []) + [self.mem["pair"]])[-RECENT_PAIRS:]
+        self.mem["pair"] = self._choose()
+
+    def pick(self, title):
+        """The song picked from the pair beats the other. Returns (winner, loser) songs."""
+        a, b = self.mem["pair"] if self.mem.get("pair") else [s["title"] for s in self.pair()]
+        if title not in (a, b):
+            return None
+        loser = b if title == a else a
+        w, l = list(self.rec(title)), list(self.rec(loser))
+        self.mem["undo"] = {"pair": [a, b], "songs": {title: w, loser: l}}
+        gain = K * (1 - 1 / (1 + 10 ** ((l[0] - w[0]) / 400)))
+        self.mem["songs"][title] = [round(w[0] + gain, 1), w[1] + 1, w[2] + 1]
+        self.mem["songs"][loser] = [round(l[0] - gain, 1), l[1] + 1, l[2]]
+        self.mem["battles"] += 1
+        self._next()
+        self.saves.save()
+        return self.by_title[title], self.by_title[loser]
+
+    def skip(self):
+        """Can't choose: a new pair, no points."""
+        self.mem["undo"] = None
+        self._next()
+        self.saves.save()
+
+    def can_undo(self):
+        return bool(self.mem.get("undo"))
+
+    def undo(self):
+        """Take back the last pick: both songs' ratings, and the pair back on screen."""
+        u = self.mem.get("undo")
+        if not u:
+            return False
+        for title, rec in u["songs"].items():
+            if rec[1]:
+                self.mem["songs"][title] = rec
+            else:
+                self.mem["songs"].pop(title, None)
+        self.mem["battles"] -= 1
+        self.mem["pair"], self.mem["undo"] = u["pair"], None
+        self.mem["recent"] = self.mem.get("recent", [])[:-1]
+        self.saves.save()
+        return True
+
+    def ranking(self):
+        """[(song, rating, battles, wins)] for every song that has battled, best first."""
+        rows = [(self.by_title[t], *r) for t, r in self.mem["songs"].items() if t in self.by_title and r[1]]
+        return sorted(rows, key=lambda x: (-x[1], -x[3], x[0]["title"]))
+
+    def eras(self):
+        """[(album, average rating or None, songs rated, top song or None)], favourite era first;
+        eras with no songs rated yet at the end, in album order."""
+        ranked = self.ranking()
+        out = []
+        for a in self.albums:
+            mine = [r for r in ranked if r[0]["album"] == a["title"]]
+            avg = sum(r[1] for r in mine) / len(mine) if mine else None
+            out.append((a, avg, len(mine), mine[0][0] if mine else None))
+        return sorted(out, key=lambda x: (x[1] is None, -(x[1] or 0)))
 
 
 def check():

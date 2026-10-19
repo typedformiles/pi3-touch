@@ -1,7 +1,7 @@
 {
-  "_about": "Taylor Swift's studio albums (standard editions, track numbers as on them), for the Swifty games. Song titles are written as on the album; features and '(Taylor's Version)' are left off. Left out: '22' (no letters to guess) and 'Vigilante Shit'. A new album: add it at the end with its year, a colour for its era (and the colour's name) and its tracks.",
+  "_about": "Taylor Swift's studio albums (standard editions, track numbers as on them), for the Swifty games. Song titles are written as on the album; features and '(Taylor's Version)' are left off. Left out: '22' (no letters to guess) and 'Vigilante Shit'. A new album: add it at the end with its year, its era's colour as fans know it (colour_name, and swatch if that's too dark or light to use as the app's colour) and its tracks.",
   "albums": [
-    {"title": "Taylor Swift", "year": 2006, "colour": [96, 196, 164], "colour_name": "Green", "tracks": [
+    {"title": "Taylor Swift", "year": 2006, "colour": [96, 196, 164], "colour_name": "Teal", "tracks": [
       "Tim McGraw", "Picture to Burn", "Teardrops on My Guitar", "A Place in This World", "Cold as You",
       "The Outside", "Tied Together with a Smile", "Stay Beautiful", "Should've Said No",
       "Mary's Song (Oh My My My)", "Our Song"]},
@@ -15,11 +15,11 @@
       "State of Grace", "Red", "Treacherous", "I Knew You Were Trouble", "All Too Well", "22", "I Almost Do",
       "We Are Never Ever Getting Back Together", "Stay Stay Stay", "The Last Time", "Holy Ground",
       "Sad Beautiful Tragic", "The Lucky One", "Everything Has Changed", "Starlight", "Begin Again"]},
-    {"title": "1989", "year": 2014, "colour": [124, 190, 240], "colour_name": "Sky blue", "tracks": [
+    {"title": "1989", "year": 2014, "colour": [124, 190, 240], "colour_name": "Light blue", "tracks": [
       "Welcome to New York", "Blank Space", "Style", "Out of the Woods", "All You Had to Do Was Stay",
       "Shake It Off", "I Wish You Would", "Bad Blood", "Wildest Dreams", "How You Get the Girl", "This Love",
       "I Know Places", "Clean"]},
-    {"title": "reputation", "year": 2017, "colour": [176, 180, 186], "colour_name": "Silver", "tracks": [
+    {"title": "reputation", "year": 2017, "colour": [176, 180, 186], "colour_name": "Black", "swatch": [24, 24, 28], "tracks": [
       "...Ready for It?", "End Game", "I Did Something Bad", "Don't Blame Me", "Delicate",
       "Look What You Made Me Do", "So It Goes...", "Gorgeous", "Getaway Car", "King of My Heart",
       "Dancing with Our Hands Tied", "Dress", "This Is Why We Can't Have Nice Things", "Call It What You Want",
@@ -33,14 +33,14 @@
       "the 1", "cardigan", "the last great american dynasty", "exile", "my tears ricochet", "mirrorball",
       "seven", "august", "this is me trying", "illicit affairs", "invisible string", "mad woman", "epiphany",
       "betty", "peace", "hoax"]},
-    {"title": "evermore", "year": 2020, "colour": [214, 132, 72], "colour_name": "Rust", "tracks": [
+    {"title": "evermore", "year": 2020, "colour": [214, 132, 72], "colour_name": "Brown", "swatch": [128, 80, 46], "tracks": [
       "willow", "champagne problems", "gold rush", "'tis the damn season", "tolerate it", "no body, no crime",
       "happiness", "dorothea", "coney island", "ivy", "cowboy like me", "long story short", "marjorie",
       "closure", "evermore"]},
-    {"title": "Midnights", "year": 2022, "colour": [140, 150, 236], "colour_name": "Indigo", "tracks": [
+    {"title": "Midnights", "year": 2022, "colour": [140, 150, 236], "colour_name": "Navy", "swatch": [34, 48, 112], "tracks": [
       "Lavender Haze", "Maroon", "Anti-Hero", "Snow on the Beach", "You're on Your Own, Kid", "Midnight Rain",
       "Question...?", "Vigilante Shit", "Bejeweled", "Labyrinth", "Karma", "Sweet Nothing", "Mastermind"]},
-    {"title": "The Tortured Poets Department", "short": "TTPD", "year": 2024, "colour": [236, 228, 210], "colour_name": "Cream", "tracks": [
+    {"title": "The Tortured Poets Department", "short": "TTPD", "year": 2024, "colour": [236, 228, 210], "colour_name": "White", "swatch": [246, 244, 240], "tracks": [
       "Fortnight", "The Tortured Poets Department", "My Boy Only Breaks His Favorite Toys", "Down Bad",
       "So Long, London", "But Daddy I Love Him", "Fresh Out the Slammer", "Florida!!!", "Guilty as Sin?",
       "Who's Afraid of Little Old Me?", "I Can Fix Him (No Really I Can)", "loml",

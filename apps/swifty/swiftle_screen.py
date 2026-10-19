@@ -13,7 +13,6 @@ from swifty_ui import (ACCENT, BEADS, BG, BG_CARD, BG_CARD_HI, GOLD, PAD, RIGHT,
                        TEXT_SEC, WRONG, ink_on, mix, truncate)
 
 VIEWS = ["Today", "Practice", "Stats"]
-VIEW_Y, VIEW_H = 60, 44
 HEAD_Y = 116                 # puzzle number / beads
 CLUE_Y, CLUE_H = 166, 56
 TILES_Y, TILES_H = 232, 210
@@ -86,15 +85,7 @@ class SwiftleScreen:
         ui = self.ui
         game = self.game(now)
         bg, accent = self.theme(game)
-        w = (SCREEN_W - 2 * PAD) / len(VIEWS)
-        ui.card(pygame.Rect(PAD, VIEW_Y, SCREEN_W - 2 * PAD, VIEW_H), mix(bg, BG_CARD, 0.8), radius=22)
-        for i, v in enumerate(VIEWS):
-            r = pygame.Rect(round(PAD + i * w) + 3, VIEW_Y + 3, round(w) - 6, VIEW_H - 6)
-            sel = v == self.view
-            if sel:
-                ui.card(r, accent, radius=19)
-            ui.text(v, ui.font(18, True), ink_on(accent) if sel else TEXT_SEC, r.center, "center")
-            ui.buttons[f"view:{v}"] = r
+        ui.segments(VIEWS, self.view, accent, bg)
         if self.view == "Stats":
             self.draw_stats(now)
         elif game is None:
@@ -151,10 +142,11 @@ class SwiftleScreen:
             mid = (r.centerx, r.y + 36)
             if not open_:
                 ui.text(f"after {after} ✗", ui.font(13), TEXT_DIM, mid, "center")
-            elif name == "colour":                  # a swatch, named so it reads as a clue
-                c = game.song["colour"]
+            elif name == "colour":                  # the fans' colour for the era, named
+                c = game.song["swatch"]
                 pill = pygame.Rect(r.x + 8, r.y + 25, r.w - 16, 24)
                 pygame.draw.rect(ui.screen, c, pill, border_radius=12)
+                pygame.draw.rect(ui.screen, TEXT_DIM, pill, 1, border_radius=12)     # so black shows
                 f, s = ui.shrink(game.song.get("colour_name", ""), pill.w - 10, [15, 13, 12])
                 ui.text(s, f, ink_on(c), pill.center, "center")
             else:
@@ -254,29 +246,7 @@ class SwiftleScreen:
         ui = self.ui
         ui.text("Pick an era", ui.serif(30, True, True), TEXT_PRI, (PAD, HEAD_Y - 6))
         ui.text("Practice games don't count towards the streak", ui.font(14), TEXT_SEC, (PAD + 2, HEAD_Y + 30))
-        albums = self.store.albums
-        options = [None] + [a["title"] for a in albums]
-        cols, gap, h, top = 2, 8, 50, 172
-        w = (SCREEN_W - 2 * PAD - gap) / cols
-        for k, era in enumerate(options):
-            row, col = divmod(k, cols)
-            r = pygame.Rect(round(PAD + col * (w + gap)), top + row * (h + gap), round(w), h)
-            if era is None:
-                ui.card(r, BG_CARD_HI, radius=12)
-                for j, c in enumerate(BEADS):
-                    pygame.draw.circle(ui.screen, c, (r.x + 18 + j * 9, r.centery), 5)
-                ui.text("Any era", ui.font(18, True), TEXT_PRI, (r.x + 80, r.centery), "midleft")
-            else:
-                a = next(x for x in albums if x["title"] == era)
-                ui.card(r, mix(BG, a["colour"], 0.22), radius=12)
-                pygame.draw.rect(ui.screen, a["colour"], (r.x, r.y, 10, r.h), border_top_left_radius=12,
-                                 border_bottom_left_radius=12)
-                f, s = ui.shrink(a["short"], r.w - 80, [18, 16, 14])
-                ui.text(s, f, TEXT_PRI, (r.x + 22, r.centery), "midleft")
-                ui.text(str(a["year"]), ui.font(13), TEXT_SEC, (r.right - 12, r.centery), "midright")
-            if era == self.store.era and self.store.practice():
-                ui.card(r, TEXT_PRI, radius=12, width=2)
-            ui.buttons[f"era:{era or ''}"] = r
+        ui.era_grid(self.store.albums, self.store.era if self.store.practice() else False, 172)
 
     def draw_stats(self, now):
         ui = self.ui

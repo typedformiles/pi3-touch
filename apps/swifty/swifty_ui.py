@@ -6,6 +6,7 @@ import pygame
 
 SCREEN_W, SCREEN_H = 480, 800
 PAD = 16
+SEG_Y, SEG_H = 60, 44       # a game's views, under the status bar
 FONT_DIR = os.environ.get("PI3_FONT_DIR", "/usr/share/fonts/truetype/dejavu")
 SERIF_DIR = os.environ.get("PI3_SERIF_DIR", "/usr/share/fonts/truetype/freefont")
 
@@ -129,6 +130,44 @@ class Ui:
             if f.size(s)[0] <= width:
                 return f, s
         return f, truncate(s, f, width)
+
+    def segments(self, views, current, accent, bg):
+        """A game's views as a row of pills, the current one filled; buttons "view:<name>"."""
+        w = (SCREEN_W - 2 * PAD) / len(views)
+        self.card(pygame.Rect(PAD, SEG_Y, SCREEN_W - 2 * PAD, SEG_H), mix(bg, BG_CARD, 0.8), radius=22)
+        for i, v in enumerate(views):
+            r = pygame.Rect(round(PAD + i * w) + 3, SEG_Y + 3, round(w) - 6, SEG_H - 6)
+            sel = v == current
+            if sel:
+                self.card(r, accent, radius=19)
+            self.text(v, self.font(18, True), ink_on(accent) if sel else TEXT_SEC, r.center, "center")
+            self.buttons[f"view:{v}"] = r
+
+    def era_grid(self, albums, selected, top):
+        """"Any era" and every album, two to a row, as buttons "era:<album>" ("era:" for any).
+        selected (an album, None for any, False for neither) is outlined."""
+        options = [None] + [a["title"] for a in albums]
+        cols, gap, h = 2, 8, 50
+        w = (SCREEN_W - 2 * PAD - gap) / cols
+        for k, era in enumerate(options):
+            row, col = divmod(k, cols)
+            r = pygame.Rect(round(PAD + col * (w + gap)), top + row * (h + gap), round(w), h)
+            if era is None:
+                self.card(r, BG_CARD_HI, radius=12)
+                for j, c in enumerate(BEADS):
+                    pygame.draw.circle(self.screen, c, (r.x + 18 + j * 9, r.centery), 5)
+                self.text("Any era", self.font(18, True), TEXT_PRI, (r.x + 80, r.centery), "midleft")
+            else:
+                a = next(x for x in albums if x["title"] == era)
+                self.card(r, mix(BG, a["colour"], 0.22), radius=12)
+                pygame.draw.rect(self.screen, a["colour"], (r.x, r.y, 10, r.h), border_top_left_radius=12,
+                                 border_bottom_left_radius=12)
+                f, s = self.shrink(a["short"], r.w - 80, [18, 16, 14])
+                self.text(s, f, TEXT_PRI, (r.x + 22, r.centery), "midleft")
+                self.text(str(a["year"]), self.font(13), TEXT_SEC, (r.right - 12, r.centery), "midright")
+            if selected is not False and era == selected:
+                self.card(r, TEXT_PRI, radius=12, width=2)
+            self.buttons[f"era:{era or ''}"] = r
 
     def star(self, colour, centre, r):
         """A four-pointed sparkle."""

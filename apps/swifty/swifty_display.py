@@ -4,8 +4,9 @@ Swifty Display
 Taylor Swift games, fullscreen on the HyperPixel 4.0 (480x800 portrait).
 
 The games run along the bottom: Swiftle (guess the day's song title, letter by letter),
-Quiz and Showdown. Everything comes from songs.json in this folder - no network - and
-progress is kept on disk (swifty_data), so it carries on after leaving the app.
+Quiz, and Showdown (two songs at a time: pick the one you love more, and it ranks them
+all). Everything comes from songs.json in this folder - no network - and progress is kept
+on disk (swifty_data), so it carries on after leaving the app.
 """
 
 import os
@@ -27,6 +28,7 @@ import pygame  # noqa: E402
 import pgscreen  # noqa: E402
 from swifty_ui import (ACCENT, BG, BG_CARD, GOLD, PAD, SCREEN_H, SCREEN_W, TEXT_PRI, TEXT_SEC,  # noqa: E402
                        Ui, wrap)
+from showdown_screen import ShowdownScreen  # noqa: E402
 from swiftle_screen import SwiftleScreen  # noqa: E402
 
 # ── Config ────────────────────────────────────────────────────────────────────
@@ -79,12 +81,12 @@ class SwiftyDisplay:
         self.ui = Ui(screen)
         self.screen = screen
         self.swiftle = sd.SwiftleStore(albums, songs, saves)
+        self.showdown = sd.ShowdownStore(albums, songs, saves)
         self.games = {
             "Swiftle": SwiftleScreen(self.ui, self.swiftle),
             "Quiz": ComingSoon(self.ui, "Swiftie Quiz", "Which album? Which track? What year? "
                                "Questions about every song, with a score to beat."),
-            "Showdown": ComingSoon(self.ui, "Song Showdown", "Two songs, tap the one you love more. "
-                                   "Over time it ranks every song, your way."),
+            "Showdown": ShowdownScreen(self.ui, self.showdown),
         }
         self.game = saves.section("app").get("game", "Swiftle")
         self.saves = saves
@@ -183,8 +185,10 @@ class SwiftyDisplay:
         elif hit:
             self.current.tap(hit, now)
 
-    def tick(self):
+    def tick(self, now):
         self.dimmed = time.time() - self.last_touch > DIM_AFTER
+        if hasattr(self.current, "tick"):
+            self.current.tick(now)
 
     # ── Main loop ─────────────────────────────────────────────────────────────
 
@@ -195,7 +199,7 @@ class SwiftyDisplay:
     def frame(self, now=None):
         """Redraw only if something on screen would change. Returns True if it drew."""
         now = now or datetime.now()
-        self.tick()
+        self.tick(now)
         if self.state(now) == self.drawn:
             return False
         self.draw(now)
