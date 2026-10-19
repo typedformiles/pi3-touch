@@ -83,6 +83,12 @@
       "name": "Word of the Day",
       "blurb": "A new word every morning",
       "target": "pi3-app-wotd.target"
+    },
+    {
+      "id": "apod",
+      "name": "Space Picture",
+      "blurb": "NASA's picture of the day",
+      "target": "pi3-app-apod.target"
     }
   ]
 }

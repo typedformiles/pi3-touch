@@ -1,0 +1,5 @@
+[Unit]
+Description=Pi3 Touch app: Space Picture
+Wants=pi3-apod.service
+Conflicts=pi3-launcher.service
+After=pi3-launcher.service

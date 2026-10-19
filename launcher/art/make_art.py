@@ -169,9 +169,24 @@ def icon_wotd(d, s):                        # an open dictionary with a violet r
               fill=LILAC)
 
 
+def icon_apod(d, s):                        # a ringed planet among stars, in a photo frame
+    d.rounded_rectangle([s * .1, s * .14, s * .9, s * .86], radius=s * .08, fill=(14, 20, 48),
+                        outline=(120, 170, 255), width=round(s * .035))
+    for x, y, r in ((.22, .26, .018), (.74, .24, .022), (.8, .66, .016), (.3, .74, .02), (.62, .78, .014),
+                    (.18, .5, .012), (.5, .22, .012)):
+        d.ellipse([s * (x - r), s * (y - r), s * (x + r), s * (y + r)], fill=TXT)
+    c, r = (s * .5, s * .5), s * .17
+    d.ellipse([c[0] - s * .3, c[1] - s * .07, c[0] + s * .3, c[1] + s * .07], outline=(250, 200, 120),
+              width=round(s * .03))
+    d.ellipse([c[0] - r, c[1] - r, c[0] + r, c[1] + r], fill=(250, 170, 90))
+    d.arc([c[0] - s * .3, c[1] - s * .07, c[0] + s * .3, c[1] + s * .07], 0, 180, fill=(250, 200, 120),
+          width=round(s * .03))
+
+
 ICONS = {"booth-display": icon_booth, "moode-remote": icon_moode, "weather": icon_weather,
          "world-clock": icon_clock, "energy": icon_energy, "pihole": icon_pihole, "fpl": icon_fpl,
-         "departures": icon_departures, "planes": icon_planes, "trivia": icon_trivia, "wotd": icon_wotd}
+         "departures": icon_departures, "planes": icon_planes, "trivia": icon_trivia, "wotd": icon_wotd,
+         "apod": icon_apod}
 
 
 def icon(app, size):
