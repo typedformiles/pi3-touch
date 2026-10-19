@@ -18,6 +18,7 @@ counts down and restarts whatever was running last; otherwise the menu waits for
 | [Trivia](apps/trivia/) | Quiz rounds of ten questions in 24 topics, from the Open Trivia Database. |
 | [Word of the Day](apps/wotd/) | Merriam-Webster's word of the day: meaning, examples, where it comes from, and the words before it. |
 | [Space Picture](apps/apod/) | NASA's Astronomy Picture of the Day, full screen, with the explanation and the weeks before it. |
+| [Swifty](apps/swifty/) | Taylor Swift games: Swiftle (guess the day's song title, letter by letter), with Quiz and Showdown to come. |
 
 ## Layout
 

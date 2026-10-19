@@ -1,0 +1,5 @@
+[Unit]
+Description=Pi3 Touch app: Swifty
+Wants=pi3-swifty.service
+Conflicts=pi3-launcher.service
+After=pi3-launcher.service

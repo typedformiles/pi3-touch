@@ -89,6 +89,12 @@
       "name": "Space Picture",
       "blurb": "NASA's picture of the day",
       "target": "pi3-app-apod.target"
+    },
+    {
+      "id": "swifty",
+      "name": "Swifty",
+      "blurb": "Swiftle, quiz and showdown",
+      "target": "pi3-app-swifty.target"
     }
   ]
 }

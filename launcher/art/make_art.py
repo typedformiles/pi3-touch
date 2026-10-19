@@ -183,10 +183,35 @@ def icon_apod(d, s):                        # a ringed planet among stars, in a 
           width=round(s * .03))
 
 
+def icon_swifty(d, s):                      # a friendship bracelet with T S letter beads, round a sparkle
+    beads = [(255, 150, 190), (255, 186, 130), (255, 226, 120), (150, 226, 170), (140, 200, 255),
+             (200, 160, 255)]
+    c, R, n = s * .5, s * .34, 16
+    d.ellipse([c - R, c - R, c + R, c + R], outline=(150, 130, 190), width=round(s * .012))
+    letters = {4: "T", 3: "S"}              # at the bottom of the ring (angles run clockwise)
+    for k in range(n):
+        a = math.pi / 2 + (k - 3.5) * 2 * math.pi / n
+        x, y = c + R * math.cos(a), c + R * math.sin(a)
+        if k in letters:
+            h = s * .085
+            d.rounded_rectangle([x - h, y - h, x + h, y + h], radius=s * .025, fill=TXT)
+            f = font(round(s * .13))
+            d.text((x - d.textlength(letters[k], font=f) / 2, y - s * .085), letters[k], font=f, fill=(60, 30, 90))
+        else:
+            r = s * .052
+            d.ellipse([x - r, y - r, x + r, y + r], fill=beads[k % len(beads)])
+    pts = []
+    for k in range(8):                      # a gold four-pointed sparkle in the middle
+        a = math.pi / 4 * k - math.pi / 2
+        rr = s * (.2 if k % 2 == 0 else .06)
+        pts.append((c + rr * math.cos(a), c - s * .02 + rr * math.sin(a)))
+    d.polygon(pts, fill=(255, 214, 120))
+
+
 ICONS = {"booth-display": icon_booth, "moode-remote": icon_moode, "weather": icon_weather,
          "world-clock": icon_clock, "energy": icon_energy, "pihole": icon_pihole, "fpl": icon_fpl,
          "departures": icon_departures, "planes": icon_planes, "trivia": icon_trivia, "wotd": icon_wotd,
-         "apod": icon_apod}
+         "apod": icon_apod, "swifty": icon_swifty}
 
 
 def icon(app, size):
