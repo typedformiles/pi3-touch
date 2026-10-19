@@ -4,9 +4,10 @@ Swifty Display
 Taylor Swift games, fullscreen on the HyperPixel 4.0 (480x800 portrait).
 
 The games run along the bottom: Swiftle (guess the day's song title, letter by letter),
-Quiz, and Showdown (two songs at a time: pick the one you love more, and it ranks them
-all). Everything comes from songs.json in this folder - no network - and progress is kept
-on disk (swifty_data), so it carries on after leaving the app.
+Swiftie Quiz (rounds of ten questions about the songs) and Song Showdown (two songs at a
+time: pick the one you love more, and it ranks them all). Everything comes from songs.json
+in this folder - no network - and progress is kept on disk (swifty_data), so it carries on
+after leaving the app.
 """
 
 import os
@@ -26,8 +27,8 @@ if "DISPLAY" not in os.environ and "WAYLAND_DISPLAY" not in os.environ:
 os.environ.setdefault("PYGAME_HIDE_SUPPORT_PROMPT", "1")
 import pygame  # noqa: E402
 import pgscreen  # noqa: E402
-from swifty_ui import (ACCENT, BG, BG_CARD, GOLD, PAD, SCREEN_H, SCREEN_W, TEXT_PRI, TEXT_SEC,  # noqa: E402
-                       Ui, wrap)
+from swifty_ui import ACCENT, BG_CARD, GOLD, PAD, SCREEN_H, SCREEN_W, TEXT_PRI, TEXT_SEC, Ui  # noqa: E402
+from quiz_screen import QuizScreen  # noqa: E402
 from showdown_screen import ShowdownScreen  # noqa: E402
 from swiftle_screen import SwiftleScreen  # noqa: E402
 
@@ -39,35 +40,6 @@ HOME_REQUEST = "/run/pi3-touch/request-home"   # Pi3 Touch launcher picks this u
 GAMES = ["Swiftle", "Quiz", "Showdown"]
 TABS_Y = 736
 TABS_H = SCREEN_H - TABS_Y
-
-
-class ComingSoon:
-    """A game still to be built: its name and what it will be."""
-
-    def __init__(self, ui, name, blurb):
-        self.ui, self.name, self.blurb = ui, name, blurb
-
-    def background(self, now):
-        return BG
-
-    def draw(self, now):
-        ui = self.ui
-        r = pygame.Rect(PAD, 220, SCREEN_W - 2 * PAD, 300)
-        ui.card(r, BG_CARD, radius=20)
-        ui.text(self.name, ui.serif(48, True, True), ACCENT, (r.centerx, r.y + 40), "midtop")
-        f = ui.font(20)
-        for i, line in enumerate(wrap(self.blurb, f, r.w - 48)):
-            ui.text(line, f, TEXT_PRI, (r.centerx, r.y + 130 + i * 28), "midtop")
-        ui.text("Coming soon", ui.font(16, True), GOLD, (r.centerx, r.bottom - 30), "midbottom")
-
-    def tap(self, hit, now):
-        pass
-
-    def key(self, ch, now):
-        pass
-
-    def state(self, now):
-        return ()
 
 
 class SwiftyDisplay:
@@ -82,10 +54,10 @@ class SwiftyDisplay:
         self.screen = screen
         self.swiftle = sd.SwiftleStore(albums, songs, saves)
         self.showdown = sd.ShowdownStore(albums, songs, saves)
+        self.quiz = sd.QuizStore(albums, songs, saves)
         self.games = {
             "Swiftle": SwiftleScreen(self.ui, self.swiftle),
-            "Quiz": ComingSoon(self.ui, "Swiftie Quiz", "Which album? Which track? What year? "
-                               "Questions about every song, with a score to beat."),
+            "Quiz": QuizScreen(self.ui, self.quiz),
             "Showdown": ShowdownScreen(self.ui, self.showdown),
         }
         self.game = saves.section("app").get("game", "Swiftle")

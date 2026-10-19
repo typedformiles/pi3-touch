@@ -1,5 +1,6 @@
 """Off-Pi tests for the Swifty app: the song list, Swiftle's rules, streaks and memory,
-Song Showdown's ratings and pairs (and the screens, when pygame is installed).
+Song Showdown's ratings and pairs, the quiz's questions and scores (and the screens, when
+pygame is installed).
 
 Run on a Mac/PC:  python3 -m unittest discover tests
 """
@@ -227,12 +228,99 @@ class TestShowdown(unittest.TestCase):
         self.assertEqual(len(eras), len(ALBUMS))
 
 
+class TestQuiz(unittest.TestCase):
+    def setUp(self):
+        self.dir = tempfile.mkdtemp()
+        self.store = self.make()
+
+    def make(self):
+        return sd.QuizStore(ALBUMS, SONGS, sd.Saves(self.dir), rng=random.Random(3))
+
+    def test_every_round_is_full_and_every_question_fair(self):
+        """Many rounds, every era: ten questions, four different answers, the right one right."""
+        titles = {s["title"].lower() for s in SONGS}
+        for seed in range(40):
+            quiz = sd.Quiz(ALBUMS, SONGS, random.Random(seed))
+            for era in [None] + [a["title"] for a in ALBUMS]:
+                rnd = quiz.round(era)
+                self.assertEqual(len(rnd), sd.ROUND, era)
+                self.assertEqual(len({q["subject"] for q in rnd}), sd.ROUND, "no subject twice")
+                for q in rnd:
+                    self.assertEqual(len(set(q["answers"])), 4, q)
+                    self.check(q, era, titles)
+
+    def check(self, q, era, titles):
+        right = q["answers"][q["right"]]
+        song = {s["title"]: s for s in SONGS}
+        if q["kind"] == "album_of":
+            self.assertEqual(song[q["q"].split("“")[1].split("”")[0]]["album"], right)
+        elif q["kind"] == "track_no":
+            self.assertEqual(str(song[q["q"].split("“")[1].split("”")[0]]["track"]), right)
+        elif q["kind"] == "not_on":
+            album = q["q"][len("Which song is NOT on "):-1]
+            self.assertEqual([song[a]["album"] == album for a in q["answers"]].count(False), 1)
+            self.assertNotEqual(song[right]["album"], album)
+        elif q["kind"] == "fill":
+            self.assertIn(q["title"].replace("____", right).lower(), titles)
+            for a in q["answers"]:
+                if a != right:
+                    self.assertNotIn(q["title"].replace("____", a).lower(), titles, "a decoy makes a real title")
+        elif q["kind"] == "first_track":
+            self.assertEqual(min(q["answers"], key=lambda t: song[t]["track"]), right)
+        elif q["kind"] == "first_album":
+            year = {a["title"]: a["year"] for a in ALBUMS}
+            self.assertEqual(len({year[a] for a in q["answers"]}), 4)
+            self.assertEqual(min(q["answers"], key=year.get), right)
+        if era and q["kind"] in ("track_no", "fill", "first_track", "opener"):     # about the era's songs
+            subject = q["q"].split("“")[1].split("”")[0] if q["kind"] == "track_no" else \
+                q["title"].replace("____", right) if q["kind"] == "fill" else right
+            self.assertEqual(song[subject]["album"], era, q)
+
+    def test_one_era_asks_only_about_that_era(self):
+        for q in sd.Quiz(ALBUMS, SONGS, random.Random(9)).round("Lover"):
+            self.assertIn("Lover", q["q"] + q["note"], q)
+
+    def test_a_round_scores_and_keeps_the_best(self):
+        st = self.store
+        st.set_era("Red")
+        st.start()
+        rnd = st.round
+        for i, q in enumerate(rnd["questions"]):
+            self.assertTrue(st.answer(q["right"]) if i < 7 else not st.answer((q["right"] + 1) % 4))
+            self.assertIsNone(st.answer(q["right"]), "one answer a question")
+            st.next()
+        self.assertTrue(st.done())
+        self.assertEqual((st.score(), st.best("Red"), st.best(None)), (7, (7, 1), (None, 0)))
+        st.start()
+        for q in st.round["questions"]:
+            st.answer((q["right"] + 1) % 4)
+            st.next()
+        self.assertEqual(st.best("Red"), (7, 2), "a worse round doesn't lower the best")
+        self.assertEqual((st.mem["right"], st.mem["asked"]), (7, 20))
+
+    def test_a_round_carries_on_after_a_restart(self):
+        self.store.start()
+        q = self.store.question()
+        self.store.answer(q["right"])
+        again = self.make()
+        self.assertEqual(again.question(), q)
+        self.assertEqual(again.answered(), q["right"])
+        again.next()
+        self.assertEqual(again.round["pos"], 1)
+
+    def test_verdicts(self):
+        self.assertEqual(sd.verdict(10, 10), "Mastermind!")
+        self.assertEqual(sd.verdict(8, 10), "Enchanted!")
+        self.assertEqual(sd.verdict(0, 10), "Shake it off!")
+
+
 try:
     os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
     import pygame  # noqa: F401
     import swifty_display
     import swiftle_screen
     import showdown_screen
+    import quiz_screen
 except ImportError:
     swifty_display = None
 
@@ -341,6 +429,39 @@ class TestScreens(unittest.TestCase):
             self.tap("lower")
         self.assertIn("higher", self.app.ui.buttons, "pages end at the last song")
         self.tap("higher")
+
+    def test_quiz_round_by_tapping(self):
+        self.tap("game:Quiz")
+        self.tap("eras")
+        self.tap("era:Midnights")
+        self.tap("start")
+        for k in range(sd.ROUND):
+            q = self.app.quiz.question()
+            self.tap(f"answer:{q['right']}")
+            self.app.draw(self.now)
+            self.assertNotIn("answer:0", self.app.ui.buttons, "answered: the choices lock")
+            self.tap("next")
+        self.assertEqual((self.app.quiz.score(), self.app.quiz.best("Midnights")), (10, (10, 1)))
+        self.tap("view:Scores")
+        self.tap("view:Play")
+        self.tap("again")
+        self.assertEqual(self.app.quiz.round["pos"], 0)
+
+    def test_every_quiz_question_draws(self):
+        self.tap("game:Quiz")
+        self.app.draw(self.now)
+        quiz = sd.Quiz(ALBUMS, SONGS, random.Random(1))
+        seen = set()
+        for era in [None] * 5 + [a["title"] for a in ALBUMS]:
+            for q in quiz.round(era):
+                seen.add(q["kind"])
+                self.app.quiz.mem["round"] = {"era": era, "questions": [q], "answers": [], "pos": 0}
+                self.app.draw(self.now)
+                self.app.quiz.answer(0)
+                self.app.draw(self.now)
+                self.app.quiz.next()
+                self.app.draw(self.now)
+        self.assertEqual(seen, set(sd.KINDS))
 
     def test_redraws_only_when_something_changes(self):
         self.assertTrue(self.app.frame(self.now))

@@ -13,7 +13,10 @@ count towards the streak.
 Song Showdown puts two songs up at a time: pick the one you love more, and over many
 battles the ratings (Elo, as in chess) rank every song, and every era.
 
-Progress (today's guesses, practice, results, the showdown ratings) is kept in
+Swiftie Quiz makes rounds of ten questions from the song list - which album, which track,
+what year, finish the title - from every era or one.
+
+Progress (today's guesses, practice, results, showdown ratings, quiz scores) is kept in
 swifty.json in the state folder, so leaving the app and coming back carries on where it was.
 
 Check the song list with:
@@ -372,6 +375,251 @@ class ShowdownStore:
             avg = sum(r[1] for r in mine) / len(mine) if mine else None
             out.append((a, avg, len(mine), mine[0][0] if mine else None))
         return sorted(out, key=lambda x: (x[1] is None, -(x[1] or 0)))
+
+
+# ── Swiftie Quiz ──────────────────────────────────────────────────────────────
+
+ROUND = 10
+# Question kinds: (weight with all eras, weight in one era, most per round)
+KINDS = {"album_of": (3, 0, 3), "song_on": (1, 0, 2), "not_on": (1, 2, 3), "year": (1, 1, 1),
+         "first_album": (1, 0, 1), "colour": (1, 0, 1), "opener": (1, 1, 1), "track_no": (1, 2, 3),
+         "fill": (2, 3, 4), "first_track": (0, 2, 3)}
+SMALL_WORDS = {"the", "and", "you", "for", "with", "was", "are", "our", "his", "her", "its", "who", "had",
+               "how", "this", "that", "what", "than", "out", "not", "can't", "don't", "it's", "i'm", "you're"}
+VERDICTS = [(10, "Mastermind!"), (8, "Enchanted!"), (6, "Fearless!"), (4, "Begin again?"), (0, "Shake it off!")]
+
+
+def verdict(score, total):
+    pct = score * 10 / max(total, 1)
+    return next(v for least, v in VERDICTS if pct >= least)
+
+
+def plain_word(w):
+    """A title word without the punctuation around it ("Me!" -> "Me", "(Oh" -> "Oh")."""
+    return w.strip(".,!?()'\"…")
+
+
+def _choice(rng, items, used=(), key=lambda s: s["title"]):
+    fresh = [x for x in items if key(x) not in used]
+    return rng.choice(fresh) if fresh else None
+
+
+def _ask(rng, kind, q, right, wrong, note, subject, colour_of=None, **extra):
+    """A question: the right answer and three wrong ones, shuffled."""
+    answers = [right] + list(wrong)
+    if len(set(answers)) < 4:
+        return None
+    rng.shuffle(answers)
+    return {"kind": kind, "q": q, "answers": answers, "right": answers.index(right), "note": note,
+            "colours": [list(colour_of(a)) for a in answers] if colour_of else None, "subject": subject, **extra}
+
+
+class Quiz:
+    """Makes rounds of questions from the song list, all from one era or from any."""
+
+    def __init__(self, albums, songs, rng=random):
+        self.albums, self.songs, self.rng = albums, songs, rng
+        self.album = {a["title"]: a for a in albums}
+        self.tracks = {a["title"]: [s for s in songs if s["album"] == a["title"]] for a in albums}
+
+    def album_colour(self, album_title):
+        return self.album[album_title]["colour"]
+
+    def round(self, era=None, n=ROUND):
+        pool = [s for s in self.songs if era is None or s["album"] == era]
+        col = 1 if era else 0
+        out, used, counts = [], set(), {}
+        for _ in range(300):
+            if len(out) == n:
+                break
+            kinds = [k for k, w in KINDS.items() if w[col] and counts.get(k, 0) < w[2]]
+            kind = self.rng.choices(kinds, weights=[KINDS[k][col] for k in kinds])[0]
+            if out and kind == out[-1]["kind"] and len(kinds) > 1:
+                continue
+            q = getattr(self, kind)(pool, era, used)
+            if q is None or q["subject"] in used:
+                continue
+            used.add(q["subject"])
+            counts[kind] = counts.get(kind, 0) + 1
+            out.append(q)
+        return out
+
+    # One method per kind: (pool of songs, era or None, subjects used) -> question or None
+
+    def album_of(self, pool, era, used):
+        s = _choice(self.rng, pool, used)
+        wrong = self.rng.sample([a["title"] for a in self.albums if a["title"] != s["album"]], 3)
+        return _ask(self.rng, "album_of", f"Which album is “{s['title']}” on?", s["album"], wrong,
+                    f"Track {s['track']} on {s['album']} ({s['year']})", s["title"], self.album_colour)
+
+    def song_on(self, pool, era, used):
+        s = _choice(self.rng, pool, used)
+        others = self.rng.sample([a["title"] for a in self.albums if a["title"] != s["album"]], 3)
+        wrong = [self.rng.choice([t for t in self.tracks[a] if t["title"] not in self.album])["title"]
+                 for a in others]                   # not a title track: "Speak Now" would muddle it
+        return _ask(self.rng, "song_on", f"Which song is on {s['album']}?", s["title"], wrong,
+                    f"“{s['title']}” is track {s['track']} on {s['album']}", s["title"],
+                    lambda t: self.album_colour(self.by_title(t)["album"]))
+
+    def not_on(self, pool, era, used):
+        album = era or self.rng.choice(self.albums)["title"]
+        odd = _choice(self.rng, [s for s in self.songs if s["album"] != album and s["title"] not in self.album], used)
+        wrong = [s["title"] for s in self.rng.sample(self.tracks[album], 3)]
+        return _ask(self.rng, "not_on", f"Which song is NOT on {album}?", odd["title"], wrong,
+                    f"“{odd['title']}” is on {odd['album']} ({odd['year']})", odd["title"])
+
+    def year(self, pool, era, used):
+        a = self.album[era] if era else self.rng.choice(self.albums)
+        y = a["year"]
+        near = {y + d for d in (-3, -2, -1, 1, 2, 3)} | {x["year"] for x in self.albums}
+        wrong = [str(x) for x in self.rng.sample(sorted(near - {y}), 3)]
+        return _ask(self.rng, "year", f"What year did {a['title']} come out?", str(y), wrong,
+                    f"{a['title']} came out in {y}", "year:" + a["title"])
+
+    def first_album(self, pool, era, used):
+        by_year = {}
+        for a in self.rng.sample(self.albums, len(self.albums)):
+            by_year.setdefault(a["year"], a)          # one album a year (folklore and evermore share 2020)
+        four = self.rng.sample(list(by_year.values()), 4)
+        first = min(four, key=lambda a: a["year"])
+        return _ask(self.rng, "first_album", "Which album came out first?", first["title"],
+                    [a["title"] for a in four if a is not first],
+                    ", ".join(f"{a['short']} {a['year']}" for a in sorted(four, key=lambda a: a["year"])),
+                    "first_album", self.album_colour)
+
+    def colour(self, pool, era, used):
+        a = self.rng.choice(self.albums)
+        wrong = self.rng.sample([x["title"] for x in self.albums if x["title"] != a["title"]], 3)
+        return _ask(self.rng, "colour", f"Which era's colour is {a['colour_name'].lower()}?", a["title"], wrong,
+                    f"{a['title']}: {a['colour_name'].lower()}", "colour:" + a["title"], self.album_colour,
+                    swatch=list(a["swatch"]))
+
+    def opener(self, pool, era, used):
+        album = era or self.rng.choice(self.albums)["title"]
+        tracks = self.tracks[album]
+        first = next((s for s in tracks if s["track"] == 1), None)
+        if not first or len(tracks) < 4:
+            return None
+        wrong = [s["title"] for s in self.rng.sample([s for s in tracks if s is not first], 3)]
+        return _ask(self.rng, "opener", f"Which song opens {album}?", first["title"], wrong,
+                    f"“{first['title']}” is track 1 on {album}", first["title"])
+
+    def track_no(self, pool, era, used):
+        s = _choice(self.rng, pool, used)
+        last = max(t["track"] for t in self.tracks[s["album"]])
+        near = sorted((n for n in range(1, last + 1) if n != s["track"]),
+                      key=lambda n: (abs(n - s["track"]), self.rng.random()))
+        wrong = [str(n) for n in self.rng.sample(near[:6], 3)]
+        return _ask(self.rng, "track_no", f"What track number is “{s['title']}” on {s['album']}?", str(s["track"]),
+                    wrong, f"“{s['title']}” is track {s['track']} of {last}", s["title"])
+
+    def fill(self, pool, era, used):
+        """A title with a word missing, and three words from other titles to choose from."""
+        def good(w):
+            return len(w) >= 3 and w.isalpha() and w.lower() not in SMALL_WORDS
+        options = [s for s in pool if s["title"] not in used and len(s["title"].split()) > 1
+                   and any(good(plain_word(w)) for w in s["title"].split())]
+        if not options:
+            return None
+        s = self.rng.choice(options)
+        words = s["title"].split()
+        i = self.rng.choice([k for k, w in enumerate(words) if good(plain_word(w))])
+        hidden = plain_word(words[i])
+        blanked = " ".join(w.replace(hidden, "____") if k == i else w for k, w in enumerate(words))
+        titles = {t["title"].lower() for t in self.songs}
+
+        def styled(w):                              # in the same case as the hidden word
+            return w.lower() if hidden.islower() else w.upper() if hidden.isupper() else w.capitalize()
+        pool_words = {styled(plain_word(w)) for t in self.songs for w in t["title"].split() if good(plain_word(w))}
+        decoys = [w for w in sorted(pool_words) if w.lower() != hidden.lower() and abs(len(w) - len(hidden)) <= 2
+                  and blanked.replace("____", w).lower() not in titles]
+        if len(decoys) < 3:
+            return None
+        return _ask(self.rng, "fill", "Finish the song title:", hidden, self.rng.sample(decoys, 3),
+                    f"“{s['title']}”, {s['album']} ({s['year']})", s["title"], title=blanked)
+
+    def first_track(self, pool, era, used):
+        album = era or self.rng.choice(self.albums)["title"]
+        four = self.rng.sample(self.tracks[album], 4)
+        first = min(four, key=lambda s: s["track"])
+        if first["title"] in used:
+            return None
+        return _ask(self.rng, "first_track", f"Which comes first on {album}?", first["title"],
+                    [s["title"] for s in four if s is not first],
+                    f"“{first['title']}” is track {first['track']}", first["title"])
+
+    def by_title(self, title):
+        return next(s for s in self.songs if s["title"] == title)
+
+
+class QuizStore:
+    """The round being played (kept, so it carries on), and scores: the best round in each
+    era and in all eras, rounds played, and questions answered right."""
+
+    def __init__(self, albums, songs, saves, rng=random):
+        self.albums, self.saves = albums, saves
+        self.quiz = Quiz(albums, songs, rng)
+        self.mem = saves.section("quiz")
+        for k, v in (("best", {}), ("played", {}), ("right", 0), ("asked", 0)):
+            self.mem.setdefault(k, v)
+
+    @property
+    def era(self):
+        return self.mem.get("era")
+
+    def set_era(self, era):
+        self.mem["era"] = era
+        self.saves.save()
+
+    @property
+    def round(self):
+        return self.mem.get("round")
+
+    def start(self):
+        self.mem["round"] = {"era": self.era, "questions": self.quiz.round(self.era), "answers": [], "pos": 0}
+        self.saves.save()
+
+    def question(self):
+        r = self.round
+        return r["questions"][r["pos"]] if r and r["pos"] < len(r["questions"]) else None
+
+    def answered(self):
+        """The answer given to the question on screen (None before one is)."""
+        r = self.round
+        return r["answers"][r["pos"]] if r and len(r["answers"]) > r["pos"] else None
+
+    def answer(self, k):
+        """Answer the question on screen; on the last one the round's score is kept."""
+        q = self.question()
+        if q is None or self.answered() is not None:
+            return None
+        r = self.round
+        r["answers"].append(k)
+        self.mem["asked"] += 1
+        self.mem["right"] += k == q["right"]
+        if len(r["answers"]) == len(r["questions"]):
+            key = r["era"] or ""
+            self.mem["played"][key] = self.mem["played"].get(key, 0) + 1
+            self.mem["best"][key] = max(self.mem["best"].get(key, 0), self.score())
+        self.saves.save()
+        return k == q["right"]
+
+    def next(self):
+        if self.answered() is not None:
+            self.round["pos"] += 1
+            self.saves.save()
+
+    def done(self):
+        r = self.round
+        return bool(r) and r["pos"] >= len(r["questions"])
+
+    def score(self):
+        r = self.round or {"questions": [], "answers": []}
+        return sum(a == q["right"] for q, a in zip(r["questions"], r["answers"]))
+
+    def best(self, era):
+        key = era or ""
+        return self.mem["best"].get(key), self.mem["played"].get(key, 0)
 
 
 def check():

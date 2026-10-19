@@ -8,7 +8,7 @@ import time
 
 import pygame
 
-from swifty_ui import (ACCENT, BG, BG_CARD, BG_CARD_HI, GOLD, PAD, SCREEN_W, TEXT_DIM, TEXT_PRI, TEXT_SEC,
+from swifty_ui import (ACCENT, BG, BG_CARD_HI, GOLD, PAD, SCREEN_W, TEXT_DIM, TEXT_PRI, TEXT_SEC,
                        ink_on, mix, truncate, wrap)
 
 VIEWS = ["Battle", "Top songs", "Eras"]

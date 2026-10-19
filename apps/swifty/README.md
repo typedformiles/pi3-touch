@@ -5,7 +5,7 @@ Taylor Swift games on the HyperPixel (480x800 portrait). The games run along the
 | Game | What it is |
 |---|---|
 | **Swiftle** | Guess the day's song title, letter by letter |
-| **Quiz** | Coming soon: which album, which track, what year |
+| **Quiz** | Rounds of ten questions about the songs: which album, which track, what year, finish the title |
 | **Showdown** | Two songs at a time: pick the one you love more, and it ranks every song and era |
 
 Part of [Pi3 Touch](../../README.md). Install the whole project with `mac/deploy.sh`,
@@ -34,6 +34,23 @@ Views along the top: **Today**, **Practice** and **Stats**.
 Leaving the app, or the Pi losing power, doesn't lose a game half played. Everything is kept
 in `/var/lib/pi3-touch-swifty/swifty.json`. A day counts towards the streak once it's
 finished, won or lost; a day missed ends the streak.
+
+## Swiftie Quiz
+
+Views along the top: **Play** and **Scores**.
+
+- **Play:** choose all eras or one ("Change ›"), then **Start**. A round is ten questions,
+  made up from the song list so there's always a new one:
+  which album a song is on, which song is (or is NOT) on an album, track numbers, which
+  song opens an album or comes first on it, what year an album came out, which came out
+  first, which era is which colour, and finishing a song title with its missing word.
+  One-era rounds ask only about that album.
+- Tap an answer: it turns green if it's right, red if not (and the right one turns green),
+  with a line to remember it by ("Track 2 on folklore (2020)"). **Next ›** moves on.
+- The end shows the score, a verdict (10 is *Mastermind!*), whether it's a new best, and
+  every question with its answer. A round half played carries on after leaving the app.
+- **Scores:** the best round and rounds played for all eras and each era, and the share of
+  answers right overall.
 
 ## Song Showdown
 
@@ -76,7 +93,9 @@ sudo systemctl restart pi3-swifty
 
 `python3 -m unittest discover tests` covers the song list, Swiftle's rules (wrong letters,
 clues, the song of the day and the cycle), streaks, practice, Showdown's ratings, pairs,
-undo and rankings, and progress kept across restarts. When pygame is installed, its screen
+undo and rankings, the quiz (hundreds of rounds checked: four different answers, the right
+one really right, no decoy word that makes a real title), scores, and progress kept across
+restarts. When pygame is installed, its screen
 tests also play by tapping, check that every title fits its tiles, check text reads on every
 era's colour, and draw every view.
 
